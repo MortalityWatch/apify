@@ -88,6 +88,15 @@ app.get('/olympics-medals.csv', (req, res) => {
   }
 })
 
+app.get('/olympics-medals-weighted.csv', (req, res) => {
+  try {
+    runTest(res, '', 'olympics-medals-weighted')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/', (_req, res) => {
   const links = routes
     .map((route) => `<li><a href="${route}">${route}</a></li>`)
@@ -109,6 +118,7 @@ app.get('/', (_req, res) => {
     <ul>${links}</ul>
     <h3>OTHERS</h3>
     <a href="/olympics-medals.csv">Olympics Medals</a>
+    <a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a>
     <script>
         $(document).ready(function () {
             function updateLink() {
