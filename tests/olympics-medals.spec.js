@@ -13,11 +13,10 @@ test('test', async ({ page }) => {
     outputFile,
     'year,rank,country,medals,population,population_per_medal\n'
   )
+  await page.goto('https://www.medalspercapita.com/')
 
   for (const year of years) {
-    await page.goto(
-      `https://www.medalspercapita.com/#medals-per-capita:${year}`
-    )
+    await page.locator('#year-select').selectOption(year.toString())
 
     let rows = await page.$$eval(
       '#table-div > table > tbody > tr > td:nth-child(1) > table > tbody > tr',
