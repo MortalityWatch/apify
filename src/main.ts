@@ -24,7 +24,7 @@ const runTest = (res: any, folder: string, name: string) => {
     return res.sendFile(filePath)
   }
 
-  let testFile = `tests/${folder}/${name}.spec.js`
+  let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
   let testCmd
   if (existsSync(testFile)) {
     testCmd = `npx playwright test ${testFile}`
@@ -79,6 +79,15 @@ app.get(/\/destatis-genesis\/.*\.csv$/, (req, res) => {
   }
 })
 
+app.get('/olympics-medals.csv', (req, res) => {
+  try {
+    runTest(res, '', 'olympics-medals')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/', (_req, res) => {
   const links = routes
     .map((route) => `<li><a href="${route}">${route}</a></li>`)
@@ -98,6 +107,8 @@ app.get('/', (_req, res) => {
     <a id="download_link" href="#">Download CSV</a>
     <h4>Custom Destatis GENESIS:</h4>
     <ul>${links}</ul>
+    <h3>OTHERS</h3>
+    <a href="/olympics-medals.csv">Olympics Medals</a>
     <script>
         $(document).ready(function () {
             function updateLink() {
