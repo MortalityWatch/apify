@@ -16,8 +16,13 @@ const isFileYoungerThanOneDay = (filePath: string): boolean => {
   return now - modifiedTime < oneDayInMs
 }
 
-const runTest = (res: any, folder: string, name: string) => {
-  const filePath = path.resolve(__dirname, '../temp/', folder, `${name}.csv`)
+const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
+  const filePath = path.resolve(
+    __dirname,
+    '../temp/',
+    folder,
+    `${name}.${ending}`
+  )
   console.log(filePath)
   if (isFileYoungerThanOneDay(filePath)) {
     console.log('File is younger than one day, sending cached file...')
@@ -97,6 +102,15 @@ app.get('/olympics-medals-weighted.csv', (req, res) => {
   }
 })
 
+app.get('/un-world-population.xlsx', (req, res) => {
+  try {
+    runTest(res, '', 'un-world-population', 'xlsx')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/', (_req, res) => {
   const links = routes
     .map((route) => `<li><a href="${route}">${route}</a></li>`)
@@ -117,8 +131,11 @@ app.get('/', (_req, res) => {
     <h4>Custom Destatis GENESIS:</h4>
     <ul>${links}</ul>
     <h3>OTHERS</h3>
-    <a href="/olympics-medals.csv">Olympics Medals</a>
-    <a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a>
+    <ul>
+      <li><a href="/olympics-medals.csv">Olympics Medals</a></li>
+      <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
+      <li><a href="/un-world-population.xlsx">UN World Population</a></li>
+    </ul>
     <script>
         $(document).ready(function () {
             function updateLink() {
