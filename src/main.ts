@@ -114,20 +114,16 @@ app.get('/un-world-population.xlsx', (req, res) => {
 
 app.get('/screengrab', (req, res) => {
   try {
-    const url = req.query.url as string
-    console.log(url)
-    if (!url || !url.length) res.send(500)
+    if (!req.query.url || !req.query.url.length) res.send(500)
     const hash = createHash('sha256')
       .update(JSON.stringify(req.query))
       .digest('hex')
-    console.log(hash)
     const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
-    console.log(filePath)
     if (isFileYoungerThanOneDay(filePath)) {
       console.log('File is younger than one day, sending cached file...')
       return res.sendFile(filePath)
     }
-
+    console.log(req.query)
     let testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
     let testCmd = `QUERY="${encodeURI(
       JSON.stringify(req.query)
@@ -136,11 +132,11 @@ app.get('/screengrab', (req, res) => {
     exec(testCmd, (error, _stdout, stderr) => {
       if (error) {
         console.error(`Error: ${error.message}`)
-        return res.status(500).send('Error running test')
+        return res.sendStatus(500)
       }
       if (stderr) {
         console.error(`Stderr: ${stderr}`)
-        return res.status(500).send('Error running test')
+        return res.sendStatus(500)
       }
       console.log('Test completed. Sending file...')
       res.sendFile(filePath, () => console.log('Done sending file.'))

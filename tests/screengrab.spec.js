@@ -1,7 +1,6 @@
 import { test } from '@playwright/test'
 
 const query = JSON.parse(decodeURI(process.env.QUERY))
-console.log(query)
 const url = query.url
 const file = process.env.FILE
 const selector = query.selector
