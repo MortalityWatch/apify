@@ -3,10 +3,14 @@ import { exec } from 'child_process'
 import path from 'path'
 import { statSync, existsSync, readdirSync, mkdirSync } from 'fs'
 import { createHash } from 'crypto'
+import { BrowserServer, chromium } from 'playwright'
 
 const app = express()
+let browser: BrowserServer
 const queue: (() => Promise<void>)[] = []
 let isProcessing = false
+const port = 5000
+let wsEndpoint: string
 
 const isFileYoungerThanOneDay = (filePath: string): boolean => {
   if (!existsSync(filePath)) {
@@ -115,89 +119,49 @@ app.get('/un-world-population.xlsx', (req, res) => {
 })
 
 app.get('/screengrab', async (req, res) => {
-  try {
-    // Set a timeout for the request itself (optional)
-    req.setTimeout(20000) // 20s
+  console.log(new Date())
+  req.setTimeout(10000)
 
-    // Validate URL parameter
-    if (!req.query.url || !req.query.url.length) return res.sendStatus(400)
+  const { url } = req.query
+  if (!url) return res.sendStatus(400)
 
-    // Create a hash for the request to use as a filename
-    const hash = createHash('sha256')
-      .update(JSON.stringify(req.query))
-      .digest('hex')
-    const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
+  const hash = createHash('sha256')
+    .update(JSON.stringify(req.query))
+    .digest('hex')
+  const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
+  const dirPath = path.resolve(__dirname, '../temp/screengrab')
 
-    // Ensure the directory exists
-    const dirPath = path.resolve(__dirname, '../temp/screengrab')
-    if (!existsSync(dirPath)) {
-      mkdirSync(dirPath, { recursive: true })
-    }
+  if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true })
 
-    // Check if the file is cached and younger than one day
-    if (isFileYoungerThanOneDay(filePath)) {
-      console.log('File is younger than one day, sending cached file...')
-      return res.sendFile(filePath)
-    }
-
-    // Define the task for the queue
-    const task = () => {
-      return new Promise<void>((resolve, reject) => {
-        // Set a timeout for the Playwright test execution
-        const timeout = setTimeout(() => {
-          console.error('Playwright test timed out.')
-          res.sendStatus(500)
-          reject(new Error('Playwright test timed out.'))
-        }, 15000) // 15s
-
-        console.log(req.query)
-        const testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
-        const testCmd = `QUERY="${encodeURI(
-          JSON.stringify(req.query)
-        )}" FILE="${hash}.png" npx playwright test ${testFile}`
-
-        console.log(`Running test: ${testCmd}`)
-        exec(testCmd, (error, _stdout, stderr) => {
-          clearTimeout(timeout) // Clear the timeout if the command finishes
-
-          if (error) {
-            console.error(`Error: ${error.message}`)
-            res.sendStatus(500)
-            reject(error)
-          } else if (stderr) {
-            console.error(`Stderr: ${stderr}`)
-            res.sendStatus(500)
-            reject(new Error(stderr))
-          } else {
-            console.log('Test completed. Sending file...')
-            res.sendFile(filePath, (err) => {
-              if (err) {
-                console.error('Error sending file:', err)
-                reject(err)
-              } else {
-                console.log('File sent successfully.')
-                resolve()
-              }
-            })
-          }
-        })
-      })
-    }
-
-    // Add the task to the queue
-    queue.push(() =>
-      task().catch((err) => {
-        console.error('Task failed:', err)
-        // Additional handling if needed
-      })
-    )
-
-    // Process the queue if not already processing
-    if (!isProcessing) processQueue()
-  } catch (e) {
-    console.error('Unexpected error:', e)
-    res.sendStatus(500)
+  if (isFileYoungerThanOneDay(filePath)) {
+    console.log('Sending cached file...')
+    return res.sendFile(filePath)
   }
+
+  const runTest = () =>
+    new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(
+        () => reject(new Error('Playwright test timed out.')),
+        10000
+      )
+
+      const testCmd = `QUERY="${encodeURI(
+        JSON.stringify(req.query)
+      )}" FILE="${hash}.png" npx playwright test ${path.resolve(
+        __dirname,
+        '../tests/screengrab.spec.js'
+      )}`
+      console.log(`Running test: ${testCmd}`)
+
+      exec(testCmd, (error, _stdout, stderr) => {
+        clearTimeout(timeout)
+        if (error || stderr) return reject(error || new Error(stderr))
+        res.sendFile(filePath, (err) => (err ? reject(err) : resolve()))
+      })
+    })
+
+  queue.push(() => runTest().catch((err) => console.error('Task failed:', err)))
+  if (!isProcessing) processQueue()
 })
 
 const processQueue = () => {
@@ -258,7 +222,36 @@ app.get('/', (_req, res) => {
 `)
 })
 
-const port = 5000
-app.listen(port, () =>
+const launchBrowser = async () => {
+  browser = await chromium.launchServer({ headless: true })
+  wsEndpoint = browser.wsEndpoint()
+  console.log('Browser launched on WebSocket endpoint:', wsEndpoint)
+}
+
+app.get('/ws-endpoint', (req, res) => {
+  if (wsEndpoint) {
+    res.json({ wsEndpoint })
+  } else {
+    res.status(500).json({ error: 'Browser not launched' })
+  }
+})
+
+app.post('/restart-browser', async (req, res) => {
+  if (browser) {
+    await browser.close()
+  }
+  await launchBrowser()
+  res.json({ success: true, wsEndpoint })
+})
+
+process.on('SIGINT', async () => {
+  if (browser) {
+    await browser.close()
+  }
+  process.exit()
+})
+
+app.listen(port, async () => {
+  await launchBrowser()
   console.log(`Server running at http://localhost:${port}`)
-)
+})

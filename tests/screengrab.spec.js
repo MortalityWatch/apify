@@ -1,19 +1,50 @@
-import { test } from '@playwright/test'
+import { test, chromium } from '@playwright/test'
 
 const query = JSON.parse(decodeURI(process.env.QUERY))
 const url = query.url
-const file = process.env.FILE
+const file = './temp/screengrab/' + process.env.FILE
 const selector = query.selector
 const width = query.width ? parseInt(query.width) : 720
-const height = query.height ? parseInt(query.width) : 480
+const height = query.height ? parseInt(query.height) : 480
 
-test.use({ timeout: 10, deviceScaleFactor: 2, viewport: { width, height } })
+let page
+let browserContext
+test.use({
+  timeout: 10000,
+  deviceScaleFactor: 2,
+  viewport: { width, height },
+})
 
-test('test', async ({ page }) => {
-  const options = { path: './temp/screengrab/' + file }
+const connectToBrowser = async () => {
+  try {
+    const response = await fetch('http://localhost:5000/ws-endpoint')
+    const { wsEndpoint } = await response.json()
+    const browser = await chromium.connect(wsEndpoint)
+    browserContext = await browser.newContext()
+    page = await browserContext.newPage()
+  } catch (e) {
+    console.log(e)
+    await fetch('http://localhost:5000/restart-browser')
+  }
+}
+
+test.beforeAll(async () => await connectToBrowser())
+
+test('test', async () => {
   await page.goto(url)
+  const options = { path: file }
+
   if (selector) {
-    await page.locator(selector).screenshot(options)
+    console.log(selector)
+    const element = await page.waitForSelector(selector, {
+      state: 'visible',
+      timeout: 10000,
+    })
+    if (!element) {
+      console.log('Element not found:', selector)
+    } else {
+      await element.screenshot(options)
+    }
   } else {
     await page.screenshot(options)
   }
