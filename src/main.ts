@@ -5,6 +5,8 @@ import { statSync, existsSync, readdirSync } from 'fs'
 import { createHash } from 'crypto'
 
 const app = express()
+const queue: (() => Promise<void>)[] = []
+let isProcessing = false
 
 const isFileYoungerThanOneDay = (filePath: string): boolean => {
   if (!existsSync(filePath)) {
@@ -114,38 +116,72 @@ app.get('/un-world-population.xlsx', (req, res) => {
 
 app.get('/screengrab', (req, res) => {
   try {
-    if (!req.query.url || !req.query.url.length) res.send(500)
+    if (!req.query.url || !req.query.url.length) return res.sendStatus(500)
+
     const hash = createHash('sha256')
       .update(JSON.stringify(req.query))
       .digest('hex')
     const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
+
     if (isFileYoungerThanOneDay(filePath)) {
       console.log('File is younger than one day, sending cached file...')
       return res.sendFile(filePath)
     }
-    console.log(req.query)
-    let testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
-    let testCmd = `QUERY="${encodeURI(
-      JSON.stringify(req.query)
-    )}" FILE="${hash}.png" npx playwright test ${testFile}`
-    console.log(`running test: ${testCmd}`)
-    exec(testCmd, (error, _stdout, stderr) => {
-      if (error) {
-        console.error(`Error: ${error.message}`)
-        return res.sendStatus(500)
-      }
-      if (stderr) {
-        console.error(`Stderr: ${stderr}`)
-        return res.sendStatus(500)
-      }
-      console.log('Test completed. Sending file...')
-      res.sendFile(filePath, () => console.log('Done sending file.'))
-    })
+
+    const task = () => {
+      return new Promise<void>((resolve, reject) => {
+        console.log(req.query)
+        const testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
+        const testCmd = `QUERY="${encodeURI(
+          JSON.stringify(req.query)
+        )}" FILE="${hash}.png" npx playwright test ${testFile}`
+
+        console.log(`running test: ${testCmd}`)
+        exec(testCmd, (error, _stdout, stderr) => {
+          if (error) {
+            console.error(`Error: ${error.message}`)
+            res.sendStatus(500)
+            reject()
+          } else if (stderr) {
+            console.error(`Stderr: ${stderr}`)
+            res.sendStatus(500)
+            reject()
+          } else {
+            console.log('Test completed. Sending file...')
+            res.sendFile(filePath, () => {
+              console.log('Done sending file.')
+              resolve()
+            })
+          }
+        })
+      })
+    }
+
+    queue.push(task)
+
+    if (!isProcessing) {
+      processQueue()
+    }
   } catch (e) {
     console.log(e)
-    res.send(500)
+    res.sendStatus(500)
   }
 })
+
+const processQueue = () => {
+  if (queue.length === 0) {
+    isProcessing = false
+    return
+  }
+
+  isProcessing = true
+  const task = queue.shift()
+  if (task) {
+    task().finally(() => {
+      processQueue()
+    })
+  }
+}
 
 app.get('/', (_req, res) => {
   const links = routes
