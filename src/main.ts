@@ -2,6 +2,7 @@ import express from 'express'
 import { exec } from 'child_process'
 import path from 'path'
 import { statSync, existsSync, readdirSync } from 'fs'
+import { createHash } from 'crypto'
 
 const app = express()
 
@@ -105,6 +106,41 @@ app.get('/olympics-medals-weighted.csv', (req, res) => {
 app.get('/un-world-population.xlsx', (req, res) => {
   try {
     runTest(res, '', 'un-world-population', 'xlsx')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
+app.get('/screengrab', (req, res) => {
+  try {
+    const url = req.query.url as string
+    console.log(url)
+    if (!url || !url.length) res.send(500)
+    const hash = createHash('sha256').update(url!!).digest('hex')
+    console.log(hash)
+    const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
+    console.log(filePath)
+    if (isFileYoungerThanOneDay(filePath)) {
+      console.log('File is younger than one day, sending cached file...')
+      return res.sendFile(filePath)
+    }
+
+    let testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
+    let testCmd = `URL="${url}" FILE="${hash}.png" npx playwright test ${testFile}`
+    console.log(`running test: ${testCmd}`)
+    exec(testCmd, (error, _stdout, stderr) => {
+      if (error) {
+        console.error(`Error: ${error.message}`)
+        return res.status(500).send('Error running test')
+      }
+      if (stderr) {
+        console.error(`Stderr: ${stderr}`)
+        return res.status(500).send('Error running test')
+      }
+      console.log('Test completed. Sending file...')
+      res.sendFile(filePath, () => console.log('Done sending file.'))
+    })
   } catch (e) {
     console.log(e)
     res.send(500)
