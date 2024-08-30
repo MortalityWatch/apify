@@ -7,7 +7,7 @@ const selector = query.selector
 const width = query.width ? parseInt(query.width) : 720
 const height = query.height ? parseInt(query.width) : 480
 
-test.use({ deviceScaleFactor: 2, viewport: { width, height } })
+test.use({ timeout: 10, deviceScaleFactor: 2, viewport: { width, height } })
 
 test('test', async ({ page }) => {
   const options = { path: './temp/screengrab/' + file }
