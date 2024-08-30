@@ -117,7 +117,9 @@ app.get('/screengrab', (req, res) => {
     const url = req.query.url as string
     console.log(url)
     if (!url || !url.length) res.send(500)
-    const hash = createHash('sha256').update(url!!).digest('hex')
+    const hash = createHash('sha256')
+      .update(JSON.stringify(req.query))
+      .digest('hex')
     console.log(hash)
     const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
     console.log(filePath)
@@ -127,7 +129,9 @@ app.get('/screengrab', (req, res) => {
     }
 
     let testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
-    let testCmd = `URL="${url}" FILE="${hash}.png" npx playwright test ${testFile}`
+    let testCmd = `QUERY="${encodeURI(
+      JSON.stringify(req.query)
+    )}" FILE="${hash}.png" npx playwright test ${testFile}`
     console.log(`running test: ${testCmd}`)
     exec(testCmd, (error, _stdout, stderr) => {
       if (error) {
