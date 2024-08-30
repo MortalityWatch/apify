@@ -1,7 +1,7 @@
 import express from 'express'
 import { exec } from 'child_process'
 import path from 'path'
-import { statSync, existsSync, readdirSync } from 'fs'
+import { statSync, existsSync, readdirSync, mkdirSync } from 'fs'
 import { createHash } from 'crypto'
 
 const app = express()
@@ -114,56 +114,88 @@ app.get('/un-world-population.xlsx', (req, res) => {
   }
 })
 
-app.get('/screengrab', (req, res) => {
+app.get('/screengrab', async (req, res) => {
   try {
-    if (!req.query.url || !req.query.url.length) return res.sendStatus(500)
+    // Set a timeout for the request itself (optional)
+    req.setTimeout(20000) // 20s
 
+    // Validate URL parameter
+    if (!req.query.url || !req.query.url.length) return res.sendStatus(400)
+
+    // Create a hash for the request to use as a filename
     const hash = createHash('sha256')
       .update(JSON.stringify(req.query))
       .digest('hex')
     const filePath = path.resolve(__dirname, `../temp/screengrab/${hash}.png`)
 
+    // Ensure the directory exists
+    const dirPath = path.resolve(__dirname, '../temp/screengrab')
+    if (!existsSync(dirPath)) {
+      mkdirSync(dirPath, { recursive: true })
+    }
+
+    // Check if the file is cached and younger than one day
     if (isFileYoungerThanOneDay(filePath)) {
       console.log('File is younger than one day, sending cached file...')
       return res.sendFile(filePath)
     }
 
+    // Define the task for the queue
     const task = () => {
       return new Promise<void>((resolve, reject) => {
+        // Set a timeout for the Playwright test execution
+        const timeout = setTimeout(() => {
+          console.error('Playwright test timed out.')
+          res.sendStatus(500)
+          reject(new Error('Playwright test timed out.'))
+        }, 15000) // 15s
+
         console.log(req.query)
         const testFile = path.resolve(__dirname, '../tests/screengrab.spec.js')
         const testCmd = `QUERY="${encodeURI(
           JSON.stringify(req.query)
         )}" FILE="${hash}.png" npx playwright test ${testFile}`
 
-        console.log(`running test: ${testCmd}`)
+        console.log(`Running test: ${testCmd}`)
         exec(testCmd, (error, _stdout, stderr) => {
+          clearTimeout(timeout) // Clear the timeout if the command finishes
+
           if (error) {
             console.error(`Error: ${error.message}`)
             res.sendStatus(500)
-            reject()
+            reject(error)
           } else if (stderr) {
             console.error(`Stderr: ${stderr}`)
             res.sendStatus(500)
-            reject()
+            reject(new Error(stderr))
           } else {
             console.log('Test completed. Sending file...')
-            res.sendFile(filePath, () => {
-              console.log('Done sending file.')
-              resolve()
+            res.sendFile(filePath, (err) => {
+              if (err) {
+                console.error('Error sending file:', err)
+                reject(err)
+              } else {
+                console.log('File sent successfully.')
+                resolve()
+              }
             })
           }
         })
       })
     }
 
-    queue.push(task)
+    // Add the task to the queue
+    queue.push(() =>
+      task().catch((err) => {
+        console.error('Task failed:', err)
+        // Additional handling if needed
+      })
+    )
 
-    if (!isProcessing) {
-      processQueue()
-    }
+    // Process the queue if not already processing
+    if (!isProcessing) processQueue()
   } catch (e) {
-    console.log(e)
+    console.error('Unexpected error:', e)
     res.sendStatus(500)
   }
 })
