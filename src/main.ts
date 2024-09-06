@@ -118,6 +118,15 @@ app.get('/un-world-population.xlsx', (req, res) => {
   }
 })
 
+app.get('/singstat-ts-M810141.csv', (req, res) => {
+  try {
+    runTest(res, '', 'singstat-ts-M810141')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/screengrab', async (req, res) => {
   console.log(new Date())
   req.setTimeout(10000)
@@ -203,6 +212,7 @@ app.get('/', (_req, res) => {
       <li><a href="/olympics-medals.csv">Olympics Medals</a></li>
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
+      <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
     </ul>
     <script>
         $(document).ready(function () {
