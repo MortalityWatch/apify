@@ -3,14 +3,11 @@ import { exec } from 'child_process'
 import path from 'path'
 import { statSync, existsSync, readdirSync, mkdirSync } from 'fs'
 import { createHash } from 'crypto'
-import { BrowserServer, chromium } from 'playwright'
 
 const app = express()
-let browser: BrowserServer
 const queue: (() => Promise<void>)[] = []
 let isProcessing = false
 const port = 5000
-let wsEndpoint: string
 
 const isFileYoungerThanOneDay = (filePath: string): boolean => {
   if (!existsSync(filePath)) {
@@ -232,36 +229,6 @@ app.get('/', (_req, res) => {
 `)
 })
 
-const launchBrowser = async () => {
-  browser = await chromium.launchServer({ headless: true })
-  wsEndpoint = browser.wsEndpoint()
-  console.log('Browser launched on WebSocket endpoint:', wsEndpoint)
-}
-
-app.get('/ws-endpoint', (req, res) => {
-  if (wsEndpoint) {
-    res.json({ wsEndpoint })
-  } else {
-    res.status(500).json({ error: 'Browser not launched' })
-  }
-})
-
-app.post('/restart-browser', async (req, res) => {
-  if (browser) {
-    await browser.close()
-  }
-  await launchBrowser()
-  res.json({ success: true, wsEndpoint })
-})
-
-process.on('SIGINT', async () => {
-  if (browser) {
-    await browser.close()
-  }
-  process.exit()
-})
-
 app.listen(port, async () => {
-  await launchBrowser()
   console.log(`Server running at http://localhost:${port}`)
 })

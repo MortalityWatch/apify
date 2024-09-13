@@ -1,41 +1,34 @@
-import { test, chromium } from '@playwright/test'
+import { test } from '@playwright/test'
 
 const query = JSON.parse(decodeURI(process.env.QUERY))
 const url = query.url
 const file = './temp/screengrab/' + process.env.FILE
 const selector = query.selector
-const width = query.width ? parseInt(query.width) : 720
-const height = query.height ? parseInt(query.height) : 480
-
-let page
-let browserContext
+const width = query.viewportWidth ? parseInt(query.viewportWidth) : 1920
+const height = query.viewportHeight ? parseInt(query.viewportHeight) : 1080
+const clip =
+  query.x && query.width && query.y && query.height
+    ? {
+        x: parseInt(query.x),
+        y: parseInt(query.y),
+        width: parseInt(query.width),
+        height: parseInt(query.height),
+      }
+    : undefined
+const fullPage = query.fullPage ? Boolean(parseInt(query.fullPage)) : undefined
 test.use({
   timeout: 10000,
   deviceScaleFactor: 2,
   viewport: { width, height },
 })
 
-const connectToBrowser = async () => {
-  try {
-    const response = await fetch('http://localhost:5000/ws-endpoint')
-    const { wsEndpoint } = await response.json()
-    const browser = await chromium.connect(wsEndpoint)
-    browserContext = await browser.newContext()
-    page = await browserContext.newPage()
-  } catch (e) {
-    console.log(e)
-    await fetch('http://localhost:5000/restart-browser')
-  }
-}
-
-test.beforeAll(async () => await connectToBrowser())
-
-test('test', async () => {
+test('test', async ({ page }) => {
   await page.goto(url)
   const options = { path: file }
-
+  if (clip) options.clip = clip
+  if (fullPage) options.fullPage = fullPage
+  console.log(options)
   if (selector) {
-    console.log(selector)
     const element = await page.waitForSelector(selector, {
       state: 'visible',
       timeout: 10000,
