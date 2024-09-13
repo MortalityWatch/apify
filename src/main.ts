@@ -148,7 +148,7 @@ app.get('/screengrab', async (req, res) => {
     new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(
         () => reject(new Error('Playwright test timed out.')),
-        10000
+        30000
       )
 
       const testCmd = `QUERY="${encodeURI(
