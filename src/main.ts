@@ -126,7 +126,7 @@ app.get('/singstat-ts-M810141.csv', (req, res) => {
 
 app.get('/screengrab', async (req, res) => {
   console.log(new Date())
-  req.setTimeout(10000)
+  req.setTimeout(30000)
 
   const { url } = req.query
   if (!url) return res.sendStatus(400)
