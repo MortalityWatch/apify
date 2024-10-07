@@ -36,10 +36,10 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
   let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
   let testCmd
   if (existsSync(testFile)) {
-    testCmd = `npx playwright test ${testFile}`
+    testCmd = `xvfb-run npx playwright test ${testFile}`
   } else {
     testFile = `tests/${folder}.spec.js`
-    testCmd = `TEST_ID=${name} npx playwright test ${testFile}`
+    testCmd = `TEST_ID=${name} xvfb-run npx playwright test ${testFile}`
   }
   console.log(`running test: ${testCmd}`)
   exec(testCmd, (error, _stdout, stderr) => {
@@ -124,6 +124,18 @@ app.get('/singstat-ts-M810141.csv', (req, res) => {
   }
 })
 
+app.get(/\/cia-world-factbook\/.*\.csv$/, (req, res) => {
+  try {
+    const tableId = req.path.match(/cia-world-factbook\/(.*)\.csv$/)
+    const id = tableId!![0].split('/')[1].replace('.csv', '')
+    console.log(id)
+    runTest(res, 'cia-world-factbook', id)
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/screengrab', async (req, res) => {
   console.log(new Date())
   req.setTimeout(30000)
@@ -153,7 +165,7 @@ app.get('/screengrab', async (req, res) => {
 
       const testCmd = `QUERY="${encodeURI(
         JSON.stringify(req.query)
-      )}" FILE="${hash}.png" npx playwright test ${path.resolve(
+      )}" FILE="${hash}.png" xvfb-run npx playwright test ${path.resolve(
         __dirname,
         '../tests/screengrab.spec.js'
       )}`
@@ -204,12 +216,18 @@ app.get('/', (_req, res) => {
     <a id="download_link" href="#">Download CSV</a>
     <h4>Custom Destatis GENESIS:</h4>
     <ul>${links}</ul>
+    <h3>CIA World Factbook</h3>
+    <h4>All tables may work with the universal adapter:</h4>
+    <label for="cia_id">Table-Name:</label>
+    <input id="cia_id" value="alcohol-consumption-per-capita" />
+    <a id="download_link_cia" href="#">Download CSV</a>
     <h3>OTHERS</h3>
     <ul>
       <li><a href="/olympics-medals.csv">Olympics Medals</a></li>
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
       <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
+      <li><a href="/cia-world-factbook/obesity-adult-prevalence-rate.csv">CIA World Obesity Adult Prevalence Rate</a></li>
     </ul>
     <script>
         $(document).ready(function () {
@@ -221,6 +239,15 @@ app.get('/', (_req, res) => {
             updateLink();
 
             $('#genesis_id').on('input', updateLink);
+
+            function updateLinkCia() {
+                var tableId = $('#cia_id').val();
+                $('#download_link_cia').attr('href', "/cia-world-factbook/" + tableId + ".csv");
+            }
+
+            updateLinkCia();
+
+            $('#cia_id').on('input', updateLinkCia);
         });
     </script>
 </body>
