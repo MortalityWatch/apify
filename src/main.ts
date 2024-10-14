@@ -227,7 +227,6 @@ app.get('/', (_req, res) => {
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
       <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
-      <li><a href="/cia-world-factbook/obesity-adult-prevalence-rate.csv">CIA World Obesity Adult Prevalence Rate</a></li>
     </ul>
     <script>
         $(document).ready(function () {
