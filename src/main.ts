@@ -88,6 +88,18 @@ app.get(/\/destatis-genesis\/.*\.csv$/, (req, res) => {
   }
 })
 
+// Wildcard route
+app.get(/\/cdc-wonder\/.*\.txt$/, (req, res) => {
+  try {
+    const tableId = req.path.match(/cdc-wonder\/(.*)\.txt$/)
+    const id = tableId!![0].split('/')[1].replace('.txt', '')
+    runTest(res, 'cdc-wonder', id, 'txt')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/olympics-medals.csv', (req, res) => {
   try {
     runTest(res, '', 'olympics-medals')
@@ -136,12 +148,15 @@ app.get(/\/cia-world-factbook\/.*\.csv$/, (req, res) => {
   }
 })
 
-app.get('/screengrab', async (req, res) => {
+app.get('/screengrab', (req, res) => {
   console.log(new Date())
   req.setTimeout(30000)
 
   const { url } = req.query
-  if (!url) return res.sendStatus(400)
+  if (!url) {
+    res.sendStatus(400)
+    return
+  }
 
   const hash = createHash('sha256')
     .update(JSON.stringify(req.query))
@@ -227,6 +242,8 @@ app.get('/', (_req, res) => {
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
       <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
+      <li><a href="/cdc-wonder/mcd-icd10-month-5y-neoplasm.txt">CDC Wonder MCD ICD10 Month/5y/neoplasm</a></li>
+      <li><a href="/cdc-wonder/mcd-icd10-provisional-month-5y-neoplasm.txt">CDC Wonder MCD ICD10 Provisional Month/5y/neoplasm</a></li>
     </ul>
     <script>
         $(document).ready(function () {
