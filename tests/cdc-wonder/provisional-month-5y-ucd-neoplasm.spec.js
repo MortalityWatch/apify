@@ -6,8 +6,12 @@ test('test', async ({ page }) => {
   await page.getByRole('button', { name: 'I Agree' }).click()
   await page.getByLabel('Group Results By').selectOption('D176.V1-level2')
   await page.locator('select[name="B_2"]').selectOption('D176.V51')
-  await dlCdc(
-    page,
-    './temp/cdc-wonder/mcd-icd10-provisional-month-5y-neoplasm.txt'
-  )
+  await page
+    .getByRole('cell', {
+      name: 'UCD - ICD-10 Codes    *All*  (All Causes of Death)',
+      exact: true,
+    })
+    .getByLabel('UCD - ICD-10 Codes')
+    .selectOption('C00-D48')
+  await dlCdc(page, './temp/cdc-wonder/provisional-month-5y-ucd-neoplasm.txt')
 })

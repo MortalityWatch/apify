@@ -242,8 +242,12 @@ app.get('/', (_req, res) => {
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
       <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
-      <li><a href="/cdc-wonder/mcd-icd10-month-5y-neoplasm.txt">CDC Wonder MCD ICD10 Month/5y/neoplasm</a></li>
-      <li><a href="/cdc-wonder/mcd-icd10-provisional-month-5y-neoplasm.txt">CDC Wonder MCD ICD10 Provisional Month/5y/neoplasm</a></li>
+      <li><a href="/cdc-wonder/month-5y.txt">CDC Wonder All-Cause Month/5y</a></li>
+      <li><a href="/cdc-wonder/provisional-month-5y.txt">CDC Wonder All-Cause Provisional Month/5y</a></li>
+      <li><a href="/cdc-wonder/month-5y-mcd-neoplasm.txt">CDC Wonder MCD ICD10 Month/5y/neoplasm</a></li>
+      <li><a href="/cdc-wonder/provisional-month-5y-mcd-neoplasm.txt">CDC Wonder MCD ICD10 Provisional Month/5y/neoplasm</a></li>
+      <li><a href="/cdc-wonder/month-5y-ucd-neoplasm.txt">CDC Wonder UCD ICD10 Month/5y/neoplasm</a></li>
+      <li><a href="/cdc-wonder/provisional-month-5y-ucd-neoplasm.txt">CDC Wonder UCD ICD10 Provisional Month/5y/neoplasm</a></li>
     </ul>
     <script>
         $(document).ready(function () {
