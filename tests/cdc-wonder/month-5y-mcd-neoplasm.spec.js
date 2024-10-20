@@ -13,5 +13,9 @@ test('test', async ({ page }) => {
     })
     .getByLabel('MCD - ICD-10 Codes')
     .selectOption('C00-D48')
+  await page
+    .getByRole('button', { name: 'Move Items Over <<<' })
+    .first()
+    .click()
   await dlCdc(page, './temp/cdc-wonder/month-5y-mcd-neoplasm.txt')
 })
