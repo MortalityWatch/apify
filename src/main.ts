@@ -7,7 +7,7 @@ import { createHash } from 'crypto'
 const app = express()
 const queue: (() => Promise<void>)[] = []
 let isProcessing = false
-const port = 5000
+const port = process.env.PORT || 5000
 
 const isFileYoungerThanOneDay = (filePath: string): boolean => {
   if (!existsSync(filePath)) {
