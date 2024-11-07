@@ -1,9 +1,11 @@
 export const dl = async (page, filename) => {
-  await page.getByRole('button', { name: 'Werteabruf' }).click()
-  const downloadPromise = page.waitForEvent('download')
   await page
-    .getByRole('button', { name: 'Tabelle im Daten-CSV-Format' })
+    .locator('#statistics-table-page-table-container')
+    .getByLabel('Download')
     .click()
+  await page.getByLabel('Qualitätskennzeichen').click()
+  const downloadPromise = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'CSV', exact: true }).click()
   const download = await downloadPromise
   await download.saveAs(`./temp/${filename}.csv`)
   await page.close()

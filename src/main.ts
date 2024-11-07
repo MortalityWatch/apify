@@ -56,31 +56,11 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
   })
 }
 
-const generateCustomRoutes = () => {
-  const testFiles = readdirSync(
-    path.resolve(__dirname, '../tests/destatis-genesis')
-  )
-  const routes: string[] = []
-  const folder = 'destatis-genesis'
-  testFiles.forEach((file) => {
-    if (file.endsWith('.spec.js')) {
-      const name = file.replace('.spec.js', '')
-      const route = `/${folder}/${name}.csv`
-      app.get(route, (_req, res) => runTest(res, folder, name))
-      routes.push(route)
-    }
-  })
-
-  return routes
-}
-
-const routes = generateCustomRoutes()
-
 // Wildcard route
-app.get(/\/destatis-genesis\/.*\.csv$/, (req, res) => {
+app.get(/\/destatis-genesis\/.*\.zip$/, (req, res) => {
   try {
-    const tableId = req.path.match(/destatis-genesis\/(.*)\.csv$/)
-    const id = tableId!![0].split('/')[1].replace('.csv', '')
+    const tableId = req.path.match(/destatis-genesis\/(.*)\.zip$/)
+    const id = tableId!![0].split('/')[1].replace('.zip', '')
     runTest(res, 'destatis-genesis', id)
   } catch (e) {
     console.log(e)
@@ -213,9 +193,6 @@ const processQueue = () => {
 }
 
 app.get('/', (_req, res) => {
-  const links = routes
-    .map((route) => `<li><a href="${route}">${route}</a></li>`)
-    .join('')
   res.send(`
     <html>
 <head>
@@ -229,8 +206,6 @@ app.get('/', (_req, res) => {
     <label for="genesis_id">Table-ID:</label>
     <input id="genesis_id" value="12612-0003" />
     <a id="download_link" href="#">Download CSV</a>
-    <h4>Custom Destatis GENESIS:</h4>
-    <ul>${links}</ul>
     <h3>CIA World Factbook</h3>
     <h4>All tables may work with the universal adapter:</h4>
     <label for="cia_id">Table-Name:</label>
@@ -253,7 +228,7 @@ app.get('/', (_req, res) => {
         $(document).ready(function () {
             function updateLink() {
                 var tableId = $('#genesis_id').val();
-                $('#download_link').attr('href', "/destatis-genesis/" + tableId + ".csv");
+                $('#download_link').attr('href', "/destatis-genesis/" + tableId + ".zip");
             }
 
             updateLink();
