@@ -1,5 +1,5 @@
 # Builder Stage
-FROM node:20 AS builder
+FROM node:lts AS builder
 
 WORKDIR /app
 
@@ -10,7 +10,7 @@ RUN npm i
 RUN npx tsc
 
 # Final Stage
-FROM node:20-slim
+FROM node:lts-slim
 
 WORKDIR /app
 
@@ -18,6 +18,8 @@ WORKDIR /app
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/node_modules /app/node_modules
 COPY --from=builder /app/package.json /app/package.json
+COPY --from=builder /app/playwright.config.js /app/playwright.config.js
+COPY --from=builder /app/tests /app/tests
 
 RUN apt update && apt install -y xauth
 
