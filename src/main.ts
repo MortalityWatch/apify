@@ -128,6 +128,15 @@ app.get(/\/cia-world-factbook\/.*\.csv$/, (req, res) => {
   }
 })
 
+app.get('/us-general-election-2024-turnout.csv', (req, res) => {
+  try {
+    runTest(res, '', 'us-general-election-2024-turnout')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/screengrab', (req, res) => {
   console.log(new Date())
   req.setTimeout(30000)
@@ -217,6 +226,7 @@ app.get('/', (_req, res) => {
       <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
       <li><a href="/un-world-population.xlsx">UN World Population</a></li>
       <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
+      <li><a href="/us-general-election-2024-turnout.csv">US 2024 General Election Turnout</a></li>
       <li><a href="/cdc-wonder/month-5y.txt">CDC Wonder All-Cause Month/5y</a></li>
       <li><a href="/cdc-wonder/provisional-month-5y.txt">CDC Wonder All-Cause Provisional Month/5y</a></li>
       <li><a href="/cdc-wonder/month-5y-mcd-neoplasm.txt">CDC Wonder MCD ICD10 Month/5y/neoplasm</a></li>
