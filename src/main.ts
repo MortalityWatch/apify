@@ -1,7 +1,7 @@
 import express from 'express'
 import { exec } from 'child_process'
 import path from 'path'
-import { statSync, existsSync, readdirSync, mkdirSync } from 'fs'
+import { statSync, existsSync, mkdirSync } from 'fs'
 import { createHash } from 'crypto'
 
 const app = express()
@@ -61,7 +61,7 @@ app.get(/\/destatis-genesis\/.*\.zip$/, (req, res) => {
   try {
     const tableId = req.path.match(/destatis-genesis\/(.*)\.zip$/)
     const id = tableId!![0].split('/')[1].replace('.zip', '')
-    runTest(res, 'destatis-genesis', id)
+    runTest(res, 'destatis-genesis', id, 'zip')
   } catch (e) {
     console.log(e)
     res.send(500)

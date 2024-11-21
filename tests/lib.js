@@ -7,7 +7,7 @@ export const dl = async (page, filename) => {
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'CSV', exact: true }).click()
   const download = await downloadPromise
-  await download.saveAs(`./temp/${filename}.csv`)
+  await download.saveAs(`./temp/${filename}.zip`)
   await page.close()
 }
 

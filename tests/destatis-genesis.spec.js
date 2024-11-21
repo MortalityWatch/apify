@@ -4,15 +4,13 @@ import { dl } from './lib'
 const id = process.env.TEST_ID
 
 test('test', async ({ page }) => {
+  const codes = id.split('-')
   await page.goto(
-    `https://www-genesis.destatis.de/genesis/online?operation=table&code=${id}#astructure`
+    `https://www-genesis.destatis.de/datenbank/online/statistic/${codes[0]}/table/${id}/table-toolbar`
   )
-
-  if (await page.getByRole('button', { name: 'Zeit auswählen' }).isVisible()) {
-    await page.getByRole('button', { name: 'Zeit auswählen' }).click()
-    await page.getByText('Alle verfügbaren Zeitangaben').click()
-    await page.getByRole('button', { name: 'übernehmen' }).click()
-  }
+  await page.click('[data-id="colTitle.0"]')
+  await page.click('#Checkbox_3')
+  await page.getByRole('button', { name: 'Anwenden' }).click()
 
   await dl(page, `destatis-genesis/${id}`)
 })
