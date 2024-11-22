@@ -31,5 +31,17 @@ test('test', async ({ page }) => {
     }
   }
 
+  // Select All Years
+  if ((await page.getByLabel('Merkmal: Stichtag').count()) > 0) {
+    await page.getByLabel('Merkmal: Stichtag').click()
+    if (
+      (await page.getByRole('checkbox', { name: 'Alles auswählen' }).count()) >
+      0
+    ) {
+      await page.getByRole('checkbox', { name: 'Alles auswählen' }).click()
+      await page.getByRole('button', { name: 'Anwenden' }).click()
+    }
+  }
+
   await dl(page, `destatis-genesis/${id}`)
 })
