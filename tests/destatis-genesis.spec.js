@@ -20,8 +20,18 @@ test('test', async ({ page }) => {
   }
 
   // Select All Years
-  if ((await page.getByLabel('Merkmal: Jahr').count()) > 0) {
-    await page.getByLabel('Merkmal: Jahr').click()
+  if (
+    (await page
+      .getByLabel(
+        '[id="colTitle\\.0"] > .advanced-select-input-control > .advanced-select-input-control-icon'
+      )
+      .count()) > 0
+  ) {
+    await page
+      .getByLabel(
+        '[id="colTitle\\.0"] > .advanced-select-input-control > .advanced-select-input-control-icon'
+      )
+      .click()
     if (
       (await page.getByRole('checkbox', { name: 'Alles auswählen' }).count()) >
       0
