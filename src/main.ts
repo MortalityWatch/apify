@@ -57,11 +57,11 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
 }
 
 // Wildcard route
-app.get(/\/destatis-genesis\/.*\.zip$/, (req, res) => {
+app.get(/\/destatis-genesis\/.*\.gz$/, (req, res) => {
   try {
-    const tableId = req.path.match(/destatis-genesis\/(.*)\.zip$/)
-    const id = tableId!![0].split('/')[1].replace('.zip', '')
-    runTest(res, 'destatis-genesis', id, 'zip')
+    const tableId = req.path.match(/destatis-genesis\/(.*)\.gz$/)
+    const id = tableId!![0].split('/')[1].replace('.gz', '')
+    runTest(res, 'destatis-genesis', id, 'gz')
   } catch (e) {
     console.log(e)
     res.send(500)
@@ -238,7 +238,7 @@ app.get('/', (_req, res) => {
         $(document).ready(function () {
             function updateLink() {
                 var tableId = $('#genesis_id').val();
-                $('#download_link').attr('href', "/destatis-genesis/" + tableId + ".zip");
+                $('#download_link').attr('href', "/destatis-genesis/" + tableId + ".gz");
             }
 
             updateLink();

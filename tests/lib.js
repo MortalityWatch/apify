@@ -1,3 +1,7 @@
+import { readFileSync, unlinkSync, writeFileSync } from 'fs'
+import { gzipSync } from 'zlib'
+import AdmZip from 'adm-zip'
+
 export const dl = async (page, filename) => {
   await page
     .locator('#statistics-table-page-table-container')
@@ -7,7 +11,33 @@ export const dl = async (page, filename) => {
   const downloadPromise = page.waitForEvent('download')
   await page.getByRole('button', { name: 'CSV', exact: true }).click()
   const download = await downloadPromise
-  await download.saveAs(`./temp/${filename}.zip`)
+  const zipPath = `./temp/${filename}.zip`
+  const gzPath = `./temp/${filename}.gz`
+
+  await download.saveAs(zipPath)
+
+  // Extract the ZIP file
+  const zip = new AdmZip(zipPath)
+  const extractedFiles = zip.getEntries().map((entry) => entry.entryName)
+
+  // Find the first CSV file inside the ZIP
+  const csvFilename = extractedFiles.find((f) => f.endsWith('.csv'))
+  if (!csvFilename) throw new Error('No CSV file found in ZIP!')
+
+  zip.extractEntryTo(csvFilename, './temp', false, true)
+
+  // Path to the extracted CSV file
+  const csvPath = `./temp/${csvFilename}`
+
+  // Compress the CSV as GZ
+  const data = readFileSync(csvPath)
+  const compressedData = gzipSync(data)
+  writeFileSync(gzPath, compressedData)
+
+  // Clean up extracted files
+  unlinkSync(zipPath)
+  unlinkSync(csvPath)
+
   await page.close()
 }
 
