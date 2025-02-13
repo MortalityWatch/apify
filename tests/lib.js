@@ -12,7 +12,7 @@ export const dl = async (page, filename) => {
   await page.getByRole('button', { name: 'CSV', exact: true }).click()
   const download = await downloadPromise
   const zipPath = `./temp/${filename}.zip`
-  const gzPath = `./temp/${filename}.gz`
+  const gzPath = `./temp/${filename}.csv.gz`
 
   await download.saveAs(zipPath)
 
