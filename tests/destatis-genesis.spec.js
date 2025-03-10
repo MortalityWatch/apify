@@ -11,16 +11,29 @@ test('test', async ({ page }) => {
   )
 
   // Select All Years
-  if ((await page.locator('[data-id="colTitle.0"]').count()) > 0) {
+  if (
+    (await page
+      .locator('.gor-table-toolbar-filter-input-control')
+      .first()
+      .textContent()) == 'Merkmal: Jahr'
+  ) {
     await page.click('[data-id="colTitle.0"]')
     if ((await page.locator('#Checkbox_3').count()) > 0) {
       await page.click('#Checkbox_3')
       await page.getByRole('button', { name: 'Anwenden' }).click()
     }
-  }
-
-  // Select All Years
-  if (
+  } else if (
+    (await page.getByLabel('Merkmal: Jahr').locator('svg').count()) > 0
+  ) {
+    await page.getByLabel('Merkmal: Jahr').locator('svg').click()
+    if (
+      (await page.getByRole('checkbox', { name: 'Alles auswählen' }).count()) >
+      0
+    ) {
+      await page.getByRole('checkbox', { name: 'Alles auswählen' }).click()
+    }
+    await page.getByRole('button', { name: 'Anwenden' }).click()
+  } else if (
     (await page
       .getByLabel(
         '[id="colTitle\\.0"] > .advanced-select-input-control > .advanced-select-input-control-icon'
