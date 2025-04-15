@@ -261,6 +261,6 @@ app.get('/', (_req, res) => {
 `)
 })
 
-app.listen(port, async () => {
+app.listen(port, () => {
   console.log(`Server running at http://localhost:${port}`)
 })
