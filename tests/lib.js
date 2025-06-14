@@ -41,7 +41,10 @@ export const dl = async (page, filename) => {
   await page.close()
 }
 
-export const dlCdc = async (page, file, totals = true) => {
+export const dlCdc = async (page, totals = true) => {
+  const file = `./temp/${getCallerFileName()}.txt`
+  console.log('Using filename:', file)
+
   await page.check('#export-option')
   await page.locator('#CO_show_totals').setChecked(totals)
   await page.check('#CO_show_zeros')
@@ -63,4 +66,11 @@ export const delay = (time) =>
 export const waitUntilLoaded = async (page) => {
   await page.waitForFunction(() => document.readyState === 'complete')
   await delay(1000)
+}
+
+export const getCallerFileName = () => {
+  const stack = new Error().stack
+  const callerLine = stack.split('\n')[3]
+  const match = callerLine.match(/\/tests\/(.+?)\.spec\.js/)
+  return match ? match[1] : 'unknown'
 }

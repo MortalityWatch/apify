@@ -17,5 +17,5 @@ test('test', async ({ page }) => {
     .getByRole('button', { name: 'Move Items Over <<<' })
     .first()
     .click()
-  await dlCdc(page, './temp/cdc-wonder/provisional-month-5y-mcd-neoplasm.txt')
+  await dlCdc(page)
 })

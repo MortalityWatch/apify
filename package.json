@@ -10,14 +10,14 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@playwright/test": "^1.51.1",
-    "@types/node": "^22.14.1",
+    "@playwright/test": "^1.53.0",
+    "@types/node": "^24.0.1",
     "adm-zip": "^0.5.16",
     "express": "^5.1.0",
     "typescript": "^5.8.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.1",
-    "tsx": "^4.19.3"
+    "@types/express": "^5.0.3",
+    "tsx": "^4.20.3"
   }
 }

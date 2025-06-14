@@ -13,5 +13,5 @@ test('test', async ({ page }) => {
     })
     .getByLabel('UCD - ICD-10 Codes')
     .selectOption('C00-D48')
-  await dlCdc(page, './temp/cdc-wonder/month-5y-ucd-neoplasm.txt')
+  await dlCdc(page)
 })
