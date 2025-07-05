@@ -21,7 +21,7 @@ COPY --from=builder /app/package.json /app/package.json
 COPY --from=builder /app/playwright.config.js /app/playwright.config.js
 COPY --from=builder /app/tests /app/tests
 
-RUN apt update && apt install -y xauth
+RUN apt update && apt install -y xauth xvfb x11-utils
 
 # Install Playwright and Chromium dependencies
 RUN npx playwright install-deps chromium
