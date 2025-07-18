@@ -30,9 +30,18 @@ module.exports = defineConfig({
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
-    headless: process.env.HEADLESS ? true : false,
+    headless: process.env.HEADLESS !== 'false', // Default to headless, only disable if explicitly set to 'false'
     launchOptions: {
       slowMo: process.env.DEV ? 1000 : undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-gpu'
+      ]
     },
   },
 
