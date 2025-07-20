@@ -235,6 +235,7 @@ app.get('/', (_req, res) => {
       <li><a href="/cdc-wonder/provisional-month-5y-ucd-neoplasm.txt">CDC Wonder UCD ICD10 Provisional Month/5y/neoplasm</a></li>
       <li><a href="/cdc-wonder/year-icd_chapter.txt">CDC Wonder UCD ICD10-Chapter Year</a></li>
       <li><a href="/cdc-wonder/provisional-year-icd_chapter.txt">CDC Wonder UCD ICD10-Chapter Provisional Year</a></li>
+      <li><a href="/cdc-wonder/vaers-deaths-month.txt">CDC Wonder VAERS Monthly Deaths</a></li>
     </ul>
     <script>
         $(document).ready(function () {

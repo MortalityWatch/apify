@@ -41,14 +41,14 @@ export const dl = async (page, filename) => {
   await page.close()
 }
 
-export const dlCdc = async (page, totals = true) => {
+export const dlCdc = async (page, totals = true, showSuppressed = true) => {
   const file = `./temp/${getCallerFileName()}.txt`
   console.log('Using filename:', file)
 
   await page.check('#export-option')
   await page.locator('#CO_show_totals').setChecked(totals)
   await page.check('#CO_show_zeros')
-  await page.check('#CO_show_suppressed')
+  if (showSuppressed) await page.check('#CO_show_suppressed')
 
   await waitUntilLoaded(page)
 
