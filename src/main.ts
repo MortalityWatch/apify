@@ -20,6 +20,9 @@ const isFileYoungerThanOneDay = (filePath: string): boolean => {
   return now - modifiedTime < oneDayInMs
 }
 
+// Track running processes to prevent multiple simultaneous runs of the same test
+const runningTests = new Map<string, boolean>()
+
 const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
   const filePath = path.resolve(
     __dirname,
@@ -27,32 +30,118 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
     folder,
     `${name}.${ending}`
   )
-  console.log(filePath)
+
+  const testKey = `${folder}/${name}`
+
+  // Prevent multiple simultaneous runs of the same test
+  if (runningTests.get(testKey)) {
+    console.log(
+      `Test ${testKey} is already running, returning cached file if available...`
+    )
+    if (existsSync(filePath)) {
+      return res.sendFile(filePath)
+    } else {
+      return res.status(429).send('Test is already running, please wait...')
+    }
+  }
+
+  // Ensure temp directory exists
+  const tempDir = path.dirname(filePath)
+  if (!existsSync(tempDir)) {
+    console.log(`Creating temp directory: ${tempDir}`)
+    mkdirSync(tempDir, { recursive: true })
+  }
+
+  console.log(`File path: ${filePath}`)
   if (isFileYoungerThanOneDay(filePath)) {
     console.log('File is younger than one day, sending cached file...')
     return res.sendFile(filePath)
   }
 
+  // Mark test as running
+  runningTests.set(testKey, true)
+  console.log(`Starting test: ${testKey}`)
+
   let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
   let testCmd
   if (existsSync(testFile)) {
-    testCmd = `xvfb-run npx playwright test ${testFile}`
+    testCmd = `timeout 120 xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1`
   } else {
     testFile = `tests/${folder}.spec.js`
-    testCmd = `TEST_ID=${name} xvfb-run npx playwright test ${testFile}`
+    testCmd = `timeout 120 bash -c 'TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1'`
   }
-  console.log(`running test: ${testCmd}`)
-  exec(testCmd, (error, _stdout, stderr) => {
-    if (error) {
-      console.error(`Error: ${error.message}`)
-      return res.status(500).send('Error running test')
+  console.log(`Running test: ${testCmd}`)
+
+  const cleanup = () => {
+    runningTests.delete(testKey)
+    console.log(`Cleaned up test: ${testKey}`)
+  }
+
+  const childProcess = exec(
+    testCmd,
+    {
+      timeout: 130000,
+      killSignal: 'SIGKILL',
+    },
+    (error, stdout, stderr) => {
+      cleanup()
+
+      console.log(`Test ${testKey} completed`)
+      if (stdout) console.log(`Stdout: ${stdout}`)
+      if (stderr) console.log(`Stderr: ${stderr}`)
+
+      if (error) {
+        console.error(`Execution error for ${testKey}: ${error.message}`)
+        console.error(`Error code: ${error.code}, Signal: ${error.signal}`)
+
+        if (error.code === 124) {
+          // timeout command timeout
+          return res.status(500).send(`Test timed out after 120 seconds`)
+        }
+        if (error.killed || error.signal === 'SIGKILL') {
+          return res
+            .status(500)
+            .send(`Test was killed due to timeout or system constraint`)
+        }
+        return res.status(500).send(`Test execution failed: ${error.message}`)
+      }
+
+      // Check if the expected file was created
+      if (!existsSync(filePath)) {
+        console.error(`Expected output file not found: ${filePath}`)
+        return res
+          .status(500)
+          .send(`Test completed but output file not generated`)
+      }
+
+      console.log(`Test ${testKey} completed successfully. Sending file...`)
+      res.sendFile(filePath, (err: any) => {
+        if (err) {
+          console.error('Error sending file:', err)
+        } else {
+          console.log('Done sending file.')
+        }
+      })
     }
-    if (stderr) {
-      console.error(`Stderr: ${stderr}`)
-      return res.status(500).send('Error running test')
+  )
+
+  // Ensure cleanup happens even if the callback isn't called
+  const forceCleanupTimer = setTimeout(() => {
+    if (childProcess && !childProcess.killed) {
+      console.log(`Force killing hanging test process for ${testKey}`)
+      childProcess.kill('SIGKILL')
     }
-    console.log('Test completed. Sending file...')
-    res.sendFile(filePath, () => console.log('Done sending file.'))
+    cleanup()
+  }, 135000) // 5 seconds after the exec timeout
+
+  childProcess.on('exit', () => {
+    clearTimeout(forceCleanupTimer)
+  })
+
+  childProcess.on('error', (err) => {
+    console.error(`Child process error for ${testKey}:`, err)
+    cleanup()
+    clearTimeout(forceCleanupTimer)
   })
 }
 
