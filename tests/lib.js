@@ -3,6 +3,10 @@ import { gzipSync } from 'zlib'
 import AdmZip from 'adm-zip'
 
 const dlInternal = async (page, filename) => {
+  // Make sure that 'Qualitätskennzeichen' is not checked.
+  const qualityLabel = page.getByLabel('Qualitätskennzeichen')
+  if (await qualityLabel.isChecked()) await qualityLabel.click()
+
   // Add 10-second timeout to download waiting
   const downloadPromise = page.waitForEvent('download', { timeout: 10000 })
   await page.getByRole('button', { name: 'CSV', exact: true }).click()
@@ -48,7 +52,6 @@ export const dl = async (page, filename, maxRetries = 10) => {
     .locator('#statistics-table-page-table-container')
     .getByLabel('Download')
     .click()
-  await page.getByLabel('Qualitätskennzeichen').click()
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
