@@ -14,6 +14,7 @@ const dlInternal = async (page, filename) => {
   try {
     const download = await downloadPromise
     const zipPath = `./temp/${filename}.zip`
+    const csvPath = `./temp/${filename}.csv`
     const gzPath = `./temp/${filename}.csv.gz`
 
     await download.saveAs(zipPath)
@@ -29,16 +30,21 @@ const dlInternal = async (page, filename) => {
     zip.extractEntryTo(csvFilename, './temp', false, true)
 
     // Path to the extracted CSV file
-    const csvPath = `./temp/${csvFilename}`
+    const extractedCsvPath = `./temp/${csvFilename}`
 
+    // Read the CSV data
+    const data = readFileSync(extractedCsvPath)
+    
+    // Save the CSV file with the desired filename
+    writeFileSync(csvPath, data)
+    
     // Compress the CSV as GZ
-    const data = readFileSync(csvPath)
     const compressedData = gzipSync(data)
     writeFileSync(gzPath, compressedData)
 
-    // Clean up extracted files
+    // Clean up temporary files (keep both csv and csv.gz)
     unlinkSync(zipPath)
-    unlinkSync(csvPath)
+    unlinkSync(extractedCsvPath)
   } catch (error) {
     if (error.message.includes('Timeout')) {
       throw new Error('Download timed out after 10 seconds')

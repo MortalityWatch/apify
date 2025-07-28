@@ -145,7 +145,19 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
   })
 }
 
-// Wildcard route
+// Wildcard route for CSV files
+app.get(/\/destatis-genesis\/.*\.csv$/, (req, res) => {
+  try {
+    const tableId = req.path.match(/destatis-genesis\/(.*)\.csv$/)
+    const id = tableId!![0].split('/')[1].replace('.csv', '')
+    runTest(res, 'destatis-genesis', id, 'csv')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
+// Wildcard route for CSV.GZ files
 app.get(/\/destatis-genesis\/.*\.csv\.gz$/, (req, res) => {
   try {
     const tableId = req.path.match(/destatis-genesis\/(.*)\.csv\.gz$/)
@@ -294,61 +306,126 @@ app.get('/', (_req, res) => {
   res.send(`
     <html>
 <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Apify - Data API</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 </head>
-<body>
-    <h1>Apify</h1>
-    <h2> Abstraction layer to retrieve browser only accesible data via api.</h2>
-    <h3>DESTATIS GENESIS</h3>
-    <h4>All tables may work with the universal adapter:</h4>
-    <label for="genesis_id">Table-ID:</label>
-    <input id="genesis_id" value="12612-0003" />
-    <a id="download_link" href="#">Download CSV</a>
-    <h3>CIA World Factbook</h3>
-    <h4>All tables may work with the universal adapter:</h4>
-    <label for="cia_id">Table-Name:</label>
-    <input id="cia_id" value="alcohol-consumption-per-capita" />
-    <a id="download_link_cia" href="#">Download CSV</a>
-    <h3>OTHERS</h3>
-    <ul>
-      <li><a href="/olympics-medals.csv">Olympics Medals</a></li>
-      <li><a href="/olympics-medals-weighted.csv">Olympics Medals Weighted</a></li>
-      <li><a href="/un-world-population.xlsx">UN World Population</a></li>
-      <li><a href="/singstat-ts-M810141.csv">Singapore TS M810141</a></li>
-      <li><a href="/us-general-election-2024-turnout.csv">US 2024 General Election Turnout</a></li>
-      <li><a href="/cdc-wonder/month-5y.txt">CDC Wonder All-Cause Month/5y</a></li>
-      <li><a href="/cdc-wonder/provisional-month-5y.txt">CDC Wonder All-Cause Provisional Month/5y</a></li>
-      <li><a href="/cdc-wonder/month-5y-mcd-neoplasm.txt">CDC Wonder MCD ICD10 Month/5y/neoplasm</a></li>
-      <li><a href="/cdc-wonder/provisional-month-5y-mcd-neoplasm.txt">CDC Wonder MCD ICD10 Provisional Month/5y/neoplasm</a></li>
-      <li><a href="/cdc-wonder/month-5y-ucd-neoplasm.txt">CDC Wonder UCD ICD10 Month/5y/neoplasm</a></li>
-      <li><a href="/cdc-wonder/provisional-month-5y-ucd-neoplasm.txt">CDC Wonder UCD ICD10 Provisional Month/5y/neoplasm</a></li>
-      <li><a href="/cdc-wonder/year-icd_chapter.txt">CDC Wonder UCD ICD10-Chapter Year</a></li>
-      <li><a href="/cdc-wonder/provisional-year-icd_chapter.txt">CDC Wonder UCD ICD10-Chapter Provisional Year</a></li>
-      <li><a href="/cdc-wonder/vaers-deaths-month.txt">CDC Wonder VAERS Monthly Deaths</a></li>
-    </ul>
-    <script>
-        $(document).ready(function () {
-            function updateLink() {
-                var tableId = $('#genesis_id').val();
-                $('#download_link').attr('href', "/destatis-genesis/" + tableId + ".csv.gz");
-            }
+<body class="bg-gray-50 min-h-screen">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="bg-white rounded-lg shadow-lg p-8">
+      <h1 class="text-4xl font-bold text-gray-800 mb-4">Apify</h1>
+      <p class="text-lg text-gray-600 mb-8">Abstraction layer to retrieve browser-only accessible data via API</p>
+      
+      <!-- DESTATIS GENESIS Section -->
+      <div class="mb-12">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">DESTATIS GENESIS</h2>
+        <p class="text-gray-600 mb-4">All tables may work with the universal adapter:</p>
+        
+        <div class="bg-gray-50 p-6 rounded-lg">
+          <div class="mb-4">
+            <label for="genesis_id" class="block text-sm font-medium text-gray-700 mb-2">Table-ID:</label>
+            <input id="genesis_id" value="12612-0003" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          
+          <div class="flex gap-3">
+            <button id="download_link_csv" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 shadow-sm">
+              Download CSV
+            </button>
+            <button id="download_link_gz" 
+                    class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 shadow-sm">
+              Download CSV.GZ
+            </button>
+          </div>
+        </div>
+      </div>
 
-            updateLink();
+      <!-- CIA World Factbook Section -->
+      <div class="mb-12">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">CIA World Factbook</h2>
+        <p class="text-gray-600 mb-4">All tables may work with the universal adapter:</p>
+        
+        <div class="bg-gray-50 p-6 rounded-lg">
+          <div class="mb-4">
+            <label for="cia_id" class="block text-sm font-medium text-gray-700 mb-2">Table-Name:</label>
+            <input id="cia_id" value="alcohol-consumption-per-capita" 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          </div>
+          
+          <div class="flex gap-3">
+            <button id="download_link_cia" 
+                    class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition duration-200 shadow-sm">
+              Download CSV
+            </button>
+          </div>
+        </div>
+      </div>
 
-            $('#genesis_id').on('input', updateLink);
+      <!-- Others Section -->
+      <div class="mb-8">
+        <h2 class="text-2xl font-semibold text-gray-800 mb-4">Other Datasets</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium text-gray-800 mb-3">General Datasets</h3>
+            <ul class="space-y-2">
+              <li><a href="/olympics-medals.csv" class="text-blue-600 hover:text-blue-800 underline">Olympics Medals</a></li>
+              <li><a href="/olympics-medals-weighted.csv" class="text-blue-600 hover:text-blue-800 underline">Olympics Medals Weighted</a></li>
+              <li><a href="/un-world-population.xlsx" class="text-blue-600 hover:text-blue-800 underline">UN World Population</a></li>
+              <li><a href="/singstat-ts-M810141.csv" class="text-blue-600 hover:text-blue-800 underline">Singapore TS M810141</a></li>
+              <li><a href="/us-general-election-2024-turnout.csv" class="text-blue-600 hover:text-blue-800 underline">US 2024 General Election Turnout</a></li>
+            </ul>
+          </div>
+          
+          <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium text-gray-800 mb-3">CDC Wonder Datasets</h3>
+            <ul class="space-y-2">
+              <li><a href="/cdc-wonder/month-5y.txt" class="text-blue-600 hover:text-blue-800 underline">All-Cause Month/5y</a></li>
+              <li><a href="/cdc-wonder/provisional-month-5y.txt" class="text-blue-600 hover:text-blue-800 underline">All-Cause Provisional Month/5y</a></li>
+              <li><a href="/cdc-wonder/month-5y-mcd-neoplasm.txt" class="text-blue-600 hover:text-blue-800 underline">MCD ICD10 Month/5y/neoplasm</a></li>
+              <li><a href="/cdc-wonder/provisional-month-5y-mcd-neoplasm.txt" class="text-blue-600 hover:text-blue-800 underline">MCD ICD10 Provisional Month/5y/neoplasm</a></li>
+              <li><a href="/cdc-wonder/month-5y-ucd-neoplasm.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10 Month/5y/neoplasm</a></li>
+              <li><a href="/cdc-wonder/provisional-month-5y-ucd-neoplasm.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10 Provisional Month/5y/neoplasm</a></li>
+              <li><a href="/cdc-wonder/year-icd_chapter.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10-Chapter Year</a></li>
+              <li><a href="/cdc-wonder/provisional-year-icd_chapter.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10-Chapter Provisional Year</a></li>
+              <li><a href="/cdc-wonder/vaers-deaths-month.txt" class="text-blue-600 hover:text-blue-800 underline">VAERS Monthly Deaths</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-            function updateLinkCia() {
-                var tableId = $('#cia_id').val();
-                $('#download_link_cia').attr('href', "/cia-world-factbook/" + tableId + ".csv");
-            }
+  <script>
+    $(document).ready(function () {
+        function updateLinks() {
+            var tableId = $('#genesis_id').val();
+            $('#download_link_csv').click(function() {
+                window.location.href = "/destatis-genesis/" + tableId + ".csv";
+            });
+            $('#download_link_gz').click(function() {
+                window.location.href = "/destatis-genesis/" + tableId + ".csv.gz";
+            });
+        }
 
-            updateLinkCia();
+        updateLinks();
+        $('#genesis_id').on('input', updateLinks);
 
-            $('#cia_id').on('input', updateLinkCia);
-        });
-    </script>
+        function updateLinkCia() {
+            var tableId = $('#cia_id').val();
+            $('#download_link_cia').click(function() {
+                window.location.href = "/cia-world-factbook/" + tableId + ".csv";
+            });
+        }
+
+        updateLinkCia();
+        $('#cia_id').on('input', updateLinkCia);
+    });
+  </script>
 </body>
-
 </html>
 `)
 })
