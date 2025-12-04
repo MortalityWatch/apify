@@ -23,15 +23,16 @@ const isFileYoungerThanOneDay = (filePath: string): boolean => {
 // Track running processes to prevent multiple simultaneous runs of the same test
 const runningTests = new Map<string, boolean>()
 
-const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
+const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = false) => {
+  const cacheKey = flat ? `${name}-flat` : name
   const filePath = path.resolve(
     __dirname,
     '../temp/',
     folder,
-    `${name}.${ending}`
+    `${cacheKey}.${ending}`
   )
 
-  const testKey = `${folder}/${name}`
+  const testKey = `${folder}/${cacheKey}`
 
   // Prevent multiple simultaneous runs of the same test
   if (runningTests.get(testKey)) {
@@ -68,7 +69,8 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv') => {
     testCmd = `timeout 120 xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1`
   } else {
     testFile = `tests/${folder}.spec.js`
-    testCmd = `timeout 120 bash -c 'TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1'`
+    const flatEnv = flat ? 'FLAT=1 ' : ''
+    testCmd = `timeout 120 bash -c '${flatEnv}TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1'`
   }
   console.log(`Running test: ${testCmd}`)
 
@@ -150,7 +152,8 @@ app.get(/\/destatis-genesis\/.*\.csv$/, (req, res) => {
   try {
     const tableId = req.path.match(/destatis-genesis\/(.*)\.csv$/)
     const id = tableId!![0].split('/')[1].replace('.csv', '')
-    runTest(res, 'destatis-genesis', id, 'csv')
+    const flat = req.query.flat === '1'
+    runTest(res, 'destatis-genesis', id, 'csv', flat)
   } catch (e) {
     console.log(e)
     res.send(500)
@@ -162,7 +165,8 @@ app.get(/\/destatis-genesis\/.*\.csv\.gz$/, (req, res) => {
   try {
     const tableId = req.path.match(/destatis-genesis\/(.*)\.csv\.gz$/)
     const id = tableId!![0].split('/')[1].replace('.csv.gz', '')
-    runTest(res, 'destatis-genesis', id, 'csv.gz')
+    const flat = req.query.flat === '1'
+    runTest(res, 'destatis-genesis', id, 'csv.gz', flat)
   } catch (e) {
     console.log(e)
     res.send(500)

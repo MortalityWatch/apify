@@ -2,6 +2,7 @@ import { test } from '@playwright/test'
 import { dl } from './lib'
 
 const id = process.env.TEST_ID
+const flat = process.env.FLAT === '1'
 
 test('test', async ({ page }) => {
   const codes = id.split('-')
@@ -66,5 +67,6 @@ test('test', async ({ page }) => {
     }
   }
 
-  await dl(page, `destatis-genesis/${id}`)
+  const filename = flat ? `destatis-genesis/${id}-flat` : `destatis-genesis/${id}`
+  await dl(page, filename, flat)
 })

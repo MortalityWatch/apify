@@ -2,14 +2,14 @@ import { readFileSync, unlinkSync, writeFileSync } from 'fs'
 import { gzipSync } from 'zlib'
 import AdmZip from 'adm-zip'
 
-const dlInternal = async (page, filename) => {
+const dlInternal = async (page, filename, flat = false) => {
   // Make sure that 'Qualitätskennzeichen' is not checked.
   const qualityLabel = page.getByLabel('Qualitätskennzeichen')
   if (await qualityLabel.isChecked()) await qualityLabel.click()
 
   // Add 10-second timeout to download waiting
   const downloadPromise = page.waitForEvent('download', { timeout: 10000 })
-  await page.getByRole('button', { name: 'CSV', exact: true }).click()
+  await page.getByRole('button', { name: flat ? 'CSV (Flat)' : 'CSV', exact: true }).click()
 
   try {
     const download = await downloadPromise
@@ -53,7 +53,7 @@ const dlInternal = async (page, filename) => {
   }
 }
 
-export const dl = async (page, filename, maxRetries = 10) => {
+export const dl = async (page, filename, flat = false, maxRetries = 10) => {
   await page
     .locator('#statistics-table-page-table-container')
     .getByLabel('Download')
@@ -61,8 +61,8 @@ export const dl = async (page, filename, maxRetries = 10) => {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`Download attempt ${attempt} for ${filename}`)
-      await dlInternal(page, filename)
+      console.log(`Download attempt ${attempt} for ${filename}${flat ? ' (flat)' : ''}`)
+      await dlInternal(page, filename, flat)
       console.log(`Successfully downloaded ${filename} on attempt ${attempt}`)
       await page.close()
       return
