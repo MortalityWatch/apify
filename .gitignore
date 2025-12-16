@@ -5,4 +5,5 @@ test-results
 .DS_Store
 playwright-report
 temp
+.claude
 
