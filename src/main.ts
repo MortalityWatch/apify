@@ -9,15 +9,23 @@ const queue: (() => Promise<void>)[] = []
 let isProcessing = false
 const port = process.env.PORT || 5000
 
-const isFileYoungerThanOneDay = (filePath: string): boolean => {
+const isFileYoungerThan = (filePath: string, days: number): boolean => {
   if (!existsSync(filePath)) {
     return false
   }
   const stats = statSync(filePath)
   const now = new Date().getTime()
   const modifiedTime = new Date(stats.mtime).getTime()
-  const oneDayInMs = 24 * 60 * 60 * 1000
-  return now - modifiedTime < oneDayInMs
+  const maxAgeMs = days * 24 * 60 * 60 * 1000
+  return now - modifiedTime < maxAgeMs
+}
+
+const isFileYoungerThanOneDay = (filePath: string): boolean => {
+  return isFileYoungerThan(filePath, 1)
+}
+
+const isFileYoungerThan30Days = (filePath: string): boolean => {
+  return isFileYoungerThan(filePath, 30)
 }
 
 // Track running processes to prevent multiple simultaneous runs of the same test
@@ -95,6 +103,18 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
       if (error) {
         console.error(`Execution error for ${testKey}: ${error.message}`)
         console.error(`Error code: ${error.code}, Signal: ${error.signal}`)
+
+        // Try to serve stale cache (up to 30 days old) on failure
+        if (isFileYoungerThan30Days(filePath)) {
+          console.log(`Serving stale cache for ${testKey} due to scrape failure`)
+          return res.sendFile(filePath, (err: any) => {
+            if (err) {
+              console.error('Error sending stale cache:', err)
+            } else {
+              console.log('Served stale cache successfully.')
+            }
+          })
+        }
 
         if (error.code === 124) {
           // timeout command timeout

@@ -7,8 +7,8 @@ const dlInternal = async (page, filename, flat = false) => {
   const qualityLabel = page.getByLabel('Qualitätskennzeichen')
   if (await qualityLabel.isChecked()) await qualityLabel.click()
 
-  // Add 10-second timeout to download waiting
-  const downloadPromise = page.waitForEvent('download', { timeout: 10000 })
+  // Add 60-second timeout to download waiting (destatis can be slow)
+  const downloadPromise = page.waitForEvent('download', { timeout: 60000 })
   await page.getByRole('button', { name: flat ? 'CSV (Flat)' : 'CSV', exact: true }).click()
 
   try {
@@ -47,7 +47,7 @@ const dlInternal = async (page, filename, flat = false) => {
     unlinkSync(extractedCsvPath)
   } catch (error) {
     if (error.message.includes('Timeout')) {
-      throw new Error('Download timed out after 10 seconds')
+      throw new Error('Download timed out after 60 seconds')
     }
     throw error
   }
