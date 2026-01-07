@@ -335,6 +335,7 @@ app.get('/', (_req, res) => {
   <title>Apify - Data API</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script defer src="https://ua.e7ad.cc/script.js" data-website-id="f6393a00-e38f-4be0-add6-afea88b85a3e"></script>
 </head>
 <body class="bg-gray-50 min-h-screen">
   <div class="container mx-auto px-4 py-8 max-w-4xl">
