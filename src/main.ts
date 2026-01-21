@@ -241,6 +241,15 @@ app.get('/singstat-ts-M810141.csv', (req, res) => {
   }
 })
 
+app.get('/mortality-org-stmf.csv', (req, res) => {
+  try {
+    runTest(res, '', 'mortality-org-stmf')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get(/\/cia-world-factbook\/.*\.csv$/, (req, res) => {
   try {
     const tableId = req.path.match(/cia-world-factbook\/(.*)\.csv$/)
@@ -402,6 +411,7 @@ app.get('/', (_req, res) => {
               <li><a href="/un-world-population.xlsx" class="text-blue-600 hover:text-blue-800 underline">UN World Population</a></li>
               <li><a href="/singstat-ts-M810141.csv" class="text-blue-600 hover:text-blue-800 underline">Singapore TS M810141</a></li>
               <li><a href="/us-general-election-2024-turnout.csv" class="text-blue-600 hover:text-blue-800 underline">US 2024 General Election Turnout</a></li>
+              <li><a href="/mortality-org-stmf.csv" class="text-blue-600 hover:text-blue-800 underline">Mortality.org STMF</a></li>
             </ul>
           </div>
           
