@@ -7,9 +7,20 @@ const flat = process.env.FLAT === '1'
 test('test', async ({ page }) => {
   const codes = id.split('-')
   await page.goto(
-    `https://www-genesis.destatis.de/datenbank/online/statistic/${codes[0]}/table/${id}/table-toolbar`,
+    `https://genesis.destatis.de/datenbank/online/statistic/${codes[0]}/table/${id}/table-toolbar`,
     { waitUntil: 'networkidle' }
   )
+
+  // Dismiss any modal dialogs that might be blocking the page
+  try {
+    const closeButton = page.locator('button:has-text("Weitere Informationen"), button:has-text("OK"), button:has-text("Schließen")').first()
+    if (await closeButton.isVisible({ timeout: 5000 })) {
+      await closeButton.click()
+      await page.waitForTimeout(1000)
+    }
+  } catch (e) {
+    // No modal to close, continue
+  }
 
   // Select All Years
   if (
