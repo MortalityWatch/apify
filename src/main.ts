@@ -7,7 +7,7 @@ import { createHash } from 'crypto'
 const app = express()
 const queue: (() => Promise<void>)[] = []
 let isProcessing = false
-const port = process.env.PORT || 5000
+const port = Number(process.env.PORT || 5000)
 
 const isFileYoungerThan = (filePath: string, days: number): boolean => {
   if (!existsSync(filePath)) {
@@ -271,6 +271,17 @@ app.get('/us-general-election-2024-turnout.csv', (req, res) => {
   }
 })
 
+app.get(/\/tipico-bundesliga\/.*\.json$/, (req, res) => {
+  try {
+    const tableId = req.path.match(/tipico-bundesliga\/(.*)\.json$/)
+    const id = tableId!![0].split('/')[1].replace('.json', '')
+    runTest(res, 'tipico-bundesliga', id, 'json')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
 app.get('/screengrab', (req, res) => {
   console.log(new Date())
   req.setTimeout(30000)
@@ -412,6 +423,9 @@ app.get('/', (_req, res) => {
               <li><a href="/singstat-ts-M810141.csv" class="text-blue-600 hover:text-blue-800 underline">Singapore TS M810141</a></li>
               <li><a href="/us-general-election-2024-turnout.csv" class="text-blue-600 hover:text-blue-800 underline">US 2024 General Election Turnout</a></li>
               <li><a href="/mortality-org-stmf.csv" class="text-blue-600 hover:text-blue-800 underline">Mortality.org STMF</a></li>
+              <li><a href="/tipico-bundesliga/bl1.json" class="text-blue-600 hover:text-blue-800 underline">Tipico Bundesliga</a></li>
+              <li><a href="/tipico-bundesliga/bl2.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 2. Bundesliga</a></li>
+              <li><a href="/tipico-bundesliga/bl3.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 3. Liga</a></li>
             </ul>
           </div>
           
@@ -466,6 +480,20 @@ app.get('/', (_req, res) => {
 `)
 })
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`)
-})
+const startServer = (serverPort: number) => {
+  const server = app.listen(serverPort, () => {
+    console.log(`Server running at http://localhost:${serverPort}`)
+  })
+
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE' && !process.env.PORT && serverPort !== 5050) {
+      console.log(`Port ${serverPort} is in use, trying http://localhost:5050`)
+      startServer(5050)
+      return
+    }
+
+    throw error
+  })
+}
+
+startServer(port)
