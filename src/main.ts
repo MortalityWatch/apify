@@ -271,16 +271,20 @@ app.get('/us-general-election-2024-turnout.csv', (req, res) => {
   }
 })
 
-app.get(/\/tipico-bundesliga\/.*\.json$/, (req, res) => {
+const runTipicoFootballTest = (req: any, res: any) => {
   try {
-    const tableId = req.path.match(/tipico-bundesliga\/(.*)\.json$/)
+    const tableId = req.path.match(/tipico-(?:bundesliga|football)\/(.*)\.json$/)
     const id = tableId!![0].split('/')[1].replace('.json', '')
-    runTest(res, 'tipico-bundesliga', id, 'json')
+    runTest(res, 'tipico-football', id, 'json')
   } catch (e) {
     console.log(e)
     res.send(500)
   }
-})
+}
+
+app.get(/\/tipico-bundesliga\/.*\.json$/, runTipicoFootballTest)
+
+app.get(/\/tipico-football\/.*\.json$/, runTipicoFootballTest)
 
 app.get('/screengrab', (req, res) => {
   console.log(new Date())
@@ -423,9 +427,10 @@ app.get('/', (_req, res) => {
               <li><a href="/singstat-ts-M810141.csv" class="text-blue-600 hover:text-blue-800 underline">Singapore TS M810141</a></li>
               <li><a href="/us-general-election-2024-turnout.csv" class="text-blue-600 hover:text-blue-800 underline">US 2024 General Election Turnout</a></li>
               <li><a href="/mortality-org-stmf.csv" class="text-blue-600 hover:text-blue-800 underline">Mortality.org STMF</a></li>
-              <li><a href="/tipico-bundesliga/bl1.json" class="text-blue-600 hover:text-blue-800 underline">Tipico Bundesliga</a></li>
-              <li><a href="/tipico-bundesliga/bl2.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 2. Bundesliga</a></li>
-              <li><a href="/tipico-bundesliga/bl3.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 3. Liga</a></li>
+              <li><a href="/tipico-football/bl1.json" class="text-blue-600 hover:text-blue-800 underline">Tipico Bundesliga</a></li>
+              <li><a href="/tipico-football/bl2.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 2. Bundesliga</a></li>
+              <li><a href="/tipico-football/bl3.json" class="text-blue-600 hover:text-blue-800 underline">Tipico 3. Liga</a></li>
+              <li><a href="/tipico-football/dfb-pokal.json" class="text-blue-600 hover:text-blue-800 underline">Tipico DFB-Pokal</a></li>
             </ul>
           </div>
           
