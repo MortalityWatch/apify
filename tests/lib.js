@@ -88,13 +88,18 @@ export const dl = async (page, filename, flat = false, maxRetries = 10) => {
   }
 }
 
-export const dlCdc = async (page, totals = true, showSuppressed = true) => {
+export const dlCdc = async (
+  page,
+  totals = true,
+  showSuppressed = true,
+  showZeros = true
+) => {
   const file = `./temp/${getCallerFileName()}.txt`
   console.log('Using filename:', file)
 
   await page.check('#export-option')
   await page.locator('#CO_show_totals').setChecked(totals)
-  await page.check('#CO_show_zeros')
+  await page.locator('#CO_show_zeros').setChecked(showZeros)
   if (showSuppressed) await page.check('#CO_show_suppressed')
 
   await waitUntilLoaded(page)
@@ -113,6 +118,22 @@ export const delay = (time) =>
 export const waitUntilLoaded = async (page) => {
   await page.waitForFunction(() => document.readyState === 'complete')
   await delay(1000)
+}
+
+export const openVaersRequestForm = async (page, maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    await page.goto('https://wonder.cdc.gov/vaers.html')
+    await page.locator('#closeBtn').click()
+    await page.getByRole('button', { name: 'Request Form' }).click()
+
+    try {
+      await page.locator('select[name="B_1"]').waitFor({ timeout: 10000 })
+      return
+    } catch (error) {
+      if (attempt === maxRetries) throw error
+      console.log(`VAERS request form did not open on attempt ${attempt}, retrying...`)
+    }
+  }
 }
 
 export const getCallerFileName = () => {

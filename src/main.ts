@@ -446,6 +446,7 @@ app.get('/', (_req, res) => {
               <li><a href="/cdc-wonder/year-icd_chapter.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10-Chapter Year</a></li>
               <li><a href="/cdc-wonder/provisional-year-icd_chapter.txt" class="text-blue-600 hover:text-blue-800 underline">UCD ICD10-Chapter Provisional Year</a></li>
               <li><a href="/cdc-wonder/vaers-deaths-month.txt" class="text-blue-600 hover:text-blue-800 underline">VAERS Monthly Deaths</a></li>
+              <li><a href="/cdc-wonder/vaers-measles-deaths-year.txt" class="text-blue-600 hover:text-blue-800 underline">VAERS Measles Deaths Year</a></li>
               <li><a href="/cdc-wonder/year-ucd-measles.txt" class="text-blue-600 hover:text-blue-800 underline">UCD Measles (B05) Year</a></li>
             </ul>
           </div>
