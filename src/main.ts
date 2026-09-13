@@ -4,6 +4,7 @@ import { exec } from 'child_process'
 import path from 'path'
 import { statSync, existsSync, mkdirSync } from 'fs'
 import { createHash } from 'crypto'
+import { inspect } from 'util'
 
 const app = express()
 const queue: (() => Promise<void>)[] = []
@@ -94,7 +95,8 @@ const runTest = (
   } else {
     testFile = `tests/${folder}.spec.js`
     const flatEnv = flat ? 'FLAT=1 ' : ''
-    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} bash -c '${flatEnv}TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1'`
+    const envPrefix = `${flatEnv}TEST_ID=${JSON.stringify(name)}`
+    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} bash -c ${JSON.stringify(`${envPrefix} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1`)}`
   }
   console.log(`Running test: ${testCmd}`)
 
@@ -324,10 +326,11 @@ app.get('/ksc/games.json', (req, res) => {
 app.get(/\/ksc\/[^/]+\.json$/, (req, res) => {
   try {
     const match = req.path.match(/\/ksc\/([^/]+)\.json$/)
-    const id = decodeURIComponent(match!![1]).replace(/[^a-zA-Z0-9._-]/g, '-')
+    let id = decodeURIComponent(match!![1]).replace(/[^a-zA-Z0-9._-]/g, '-')
+    if (/^026-\d{2}-\d{2}-/.test(id)) id = `2${id}`
     runKscTest(res, id, req.query.force === '1')
   } catch (e) {
-    console.log(e)
+    console.log(inspect(e))
     res.send(500)
   }
 })
