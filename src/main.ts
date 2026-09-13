@@ -33,6 +33,23 @@ const isFileYoungerThan30Days = (filePath: string): boolean => {
 // Track running processes to prevent multiple simultaneous runs of the same test
 const runningTests = new Map<string, boolean>()
 
+const buildTestCommand = (
+  folder: string,
+  name: string,
+  flat: boolean,
+  playwrightTimeoutMs: number
+) => {
+  let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
+  if (existsSync(testFile)) {
+    return `xvfb-run -a npx playwright test ${testFile} --timeout=${playwrightTimeoutMs} --workers=1`
+  }
+
+  testFile = `tests/${folder}.spec.js`
+  const flatEnv = flat ? 'FLAT=1 ' : ''
+  const envPrefix = `${flatEnv}TEST_ID=${JSON.stringify(name)}`
+  return `bash -c ${JSON.stringify(`${envPrefix} xvfb-run -a npx playwright test ${testFile} --timeout=${playwrightTimeoutMs} --workers=1`)}`
+}
+
 const runTest = (
   res: any,
   folder: string,
@@ -88,16 +105,9 @@ const runTest = (
   runningTests.set(testKey, true)
   console.log(`Starting test: ${testKey}`)
 
-  let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
-  let testCmd
-  if (existsSync(testFile)) {
-    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1`
-  } else {
-    testFile = `tests/${folder}.spec.js`
-    const flatEnv = flat ? 'FLAT=1 ' : ''
-    const envPrefix = `${flatEnv}TEST_ID=${JSON.stringify(name)}`
-    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} bash -c ${JSON.stringify(`${envPrefix} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1`)}`
-  }
+  const commandTimeoutMs = options.commandTimeoutMs ?? 120000
+  const playwrightTimeoutMs = options.playwrightTimeoutMs ?? 90000
+  const testCmd = buildTestCommand(folder, name, flat, playwrightTimeoutMs)
   console.log(`Running test: ${testCmd}`)
 
   const cleanup = () => {
@@ -108,7 +118,7 @@ const runTest = (
   const childProcess = exec(
     testCmd,
     {
-      timeout: 130000,
+      timeout: commandTimeoutMs + 5000,
       killSignal: 'SIGKILL',
     },
     (error, stdout, stderr) => {
@@ -172,7 +182,7 @@ const runTest = (
       childProcess.kill('SIGKILL')
     }
     cleanup()
-  }, (options.commandTimeoutMs ?? 120000) + 5000) // 5 seconds after the exec timeout
+  }, commandTimeoutMs + 10000) // 5 seconds after the exec timeout
 
   childProcess.on('exit', () => {
     clearTimeout(forceCleanupTimer)
@@ -314,6 +324,64 @@ const runKscTest = (res: any, id: string, force = false) => {
   })
 }
 
+const startKscRefresh = (id: string) => {
+  const testKey = `ksc/${id}`
+  if (runningTests.get(testKey)) return false
+
+  const filePath = path.resolve(__dirname, '../temp/ksc', `${id}.json`)
+  const tempDir = path.dirname(filePath)
+  if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true })
+
+  const commandTimeoutMs = id === 'games' ? 4 * 60 * 1000 : 20 * 60 * 1000
+  const playwrightTimeoutMs = id === 'games' ? 3 * 60 * 1000 : 19 * 60 * 1000
+  const testCmd = buildTestCommand('ksc', id, false, playwrightTimeoutMs)
+
+  runningTests.set(testKey, true)
+  console.log(`Starting background refresh: ${testKey}`)
+  console.log(`Running test: ${testCmd}`)
+
+  exec(
+    testCmd,
+    {
+      timeout: commandTimeoutMs + 5000,
+      killSignal: 'SIGKILL',
+    },
+    (error, stdout, stderr) => {
+      runningTests.delete(testKey)
+      console.log(`Background refresh ${testKey} completed`)
+      if (stdout) console.log(`Stdout: ${stdout}`)
+      if (stderr) console.log(`Stderr: ${stderr}`)
+      if (error) console.error(`Background refresh failed for ${testKey}: ${error.message}`)
+      else if (!existsSync(filePath)) console.error(`Background refresh did not create ${filePath}`)
+    }
+  )
+
+  return true
+}
+
+const sendKscMatch = (res: any, id: string, force = false) => {
+  const filePath = path.resolve(__dirname, '../temp/ksc', `${id}.json`)
+  const testKey = `ksc/${id}`
+  const hasCache = existsSync(filePath)
+  const isFresh = isFileYoungerThan(filePath, 1 / 288)
+  const shouldRefresh = force || !isFresh
+
+  if (hasCache) {
+    if (shouldRefresh) startKscRefresh(id)
+    res.set('X-Cache', isFresh ? 'HIT' : 'STALE')
+    res.set('X-Refresh', shouldRefresh ? 'BACKGROUND' : 'NONE')
+    return res.sendFile(filePath)
+  }
+
+  const started = startKscRefresh(id)
+  return res.status(202).json({
+    status: runningTests.get(testKey) ? 'refreshing' : 'queued',
+    started,
+    id,
+    message: 'KSC scrape started. Retry this URL in a few minutes.',
+  })
+}
+
 app.get('/ksc/games.json', (req, res) => {
   try {
     process.env.KSC_PUBLIC_BASE_URL = `${req.protocol}://${req.get('host')}`
@@ -329,7 +397,7 @@ app.get(/\/ksc\/[^/]+\.json$/, (req, res) => {
     const match = req.path.match(/\/ksc\/([^/]+)\.json$/)
     let id = decodeURIComponent(match!![1]).replace(/[^a-zA-Z0-9._-]/g, '-')
     if (/^026-\d{2}-\d{2}-/.test(id)) id = `2${id}`
-    runKscTest(res, id, req.query.force === '1')
+    sendKscMatch(res, id, req.query.force === '1')
   } catch (e) {
     console.log(inspect(e))
     res.send(500)
