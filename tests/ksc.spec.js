@@ -296,10 +296,14 @@ test('ksc', async ({ page }) => {
   const games = await readGames(page)
 
   if (TEST_ID === 'games') {
+    const publicBaseUrl = process.env.KSC_PUBLIC_BASE_URL || ''
     writeJson('games', {
       fetchedAt: new Date().toISOString(),
       source: page.url(),
-      games: games.map(({ ticketButton, ...game }) => game),
+      games: games.map(({ ticketButton, ...game }) => ({
+        ...game,
+        url: publicBaseUrl ? `${publicBaseUrl}/ksc/${game.id}.json` : `/ksc/${game.id}.json`,
+      })),
     })
     return
   }

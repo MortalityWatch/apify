@@ -316,6 +316,7 @@ const runKscTest = (res: any, id: string, force = false) => {
 
 app.get('/ksc/games.json', (req, res) => {
   try {
+    process.env.KSC_PUBLIC_BASE_URL = `${req.protocol}://${req.get('host')}`
     runKscTest(res, 'games', req.query.force === '1')
   } catch (e) {
     console.log(e)
