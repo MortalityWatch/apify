@@ -465,6 +465,14 @@ app.get('/', (_req, res) => {
         
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div class="bg-gray-50 p-4 rounded-lg">
+            <h3 class="font-medium text-gray-800 mb-3">KSC Tickets</h3>
+            <ul class="space-y-2">
+              <li><a href="/ksc/games.json" class="text-blue-600 hover:text-blue-800 underline">Current Home Games</a></li>
+              <li><a href="/ksc/2026-09-13-fc-energie-cottbus.json" class="text-blue-600 hover:text-blue-800 underline">KSC - Energie Cottbus</a></li>
+            </ul>
+          </div>
+
+          <div class="bg-gray-50 p-4 rounded-lg">
             <h3 class="font-medium text-gray-800 mb-3">General Datasets</h3>
             <ul class="space-y-2">
               <li><a href="/olympics-medals.csv" class="text-blue-600 hover:text-blue-800 underline">Olympics Medals</a></li>
