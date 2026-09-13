@@ -1,4 +1,5 @@
 import express from 'express'
+import 'dotenv/config'
 import { exec } from 'child_process'
 import path from 'path'
 import { statSync, existsSync, mkdirSync } from 'fs'
@@ -31,7 +32,20 @@ const isFileYoungerThan30Days = (filePath: string): boolean => {
 // Track running processes to prevent multiple simultaneous runs of the same test
 const runningTests = new Map<string, boolean>()
 
-const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = false) => {
+const runTest = (
+  res: any,
+  folder: string,
+  name: string,
+  ending = 'csv',
+  flat = false,
+  options: {
+    force?: boolean
+    cacheDays?: number
+    staleDays?: number
+    commandTimeoutMs?: number
+    playwrightTimeoutMs?: number
+  } = {}
+) => {
   const cacheKey = flat ? `${name}-flat` : name
   const filePath = path.resolve(
     __dirname,
@@ -62,7 +76,9 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
   }
 
   console.log(`File path: ${filePath}`)
-  if (isFileYoungerThanOneDay(filePath)) {
+  const cacheDays = options.cacheDays ?? 1
+  const staleDays = options.staleDays ?? 30
+  if (!options.force && isFileYoungerThan(filePath, cacheDays)) {
     console.log('File is younger than one day, sending cached file...')
     return res.sendFile(filePath)
   }
@@ -74,11 +90,11 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
   let testFile = path.resolve(__dirname, '../tests/', folder, `${name}.spec.js`)
   let testCmd
   if (existsSync(testFile)) {
-    testCmd = `timeout 120 xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1`
+    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1`
   } else {
     testFile = `tests/${folder}.spec.js`
     const flatEnv = flat ? 'FLAT=1 ' : ''
-    testCmd = `timeout 120 bash -c '${flatEnv}TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=90000 --workers=1'`
+    testCmd = `timeout ${Math.ceil((options.commandTimeoutMs ?? 120000) / 1000)} bash -c '${flatEnv}TEST_ID=${name} xvfb-run -a npx playwright test ${testFile} --timeout=${options.playwrightTimeoutMs ?? 90000} --workers=1'`
   }
   console.log(`Running test: ${testCmd}`)
 
@@ -105,7 +121,7 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
         console.error(`Error code: ${error.code}, Signal: ${error.signal}`)
 
         // Try to serve stale cache (up to 30 days old) on failure
-        if (isFileYoungerThan30Days(filePath)) {
+        if (isFileYoungerThan(filePath, staleDays)) {
           console.log(`Serving stale cache for ${testKey} due to scrape failure`)
           return res.sendFile(filePath, (err: any) => {
             if (err) {
@@ -118,7 +134,7 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
 
         if (error.code === 124) {
           // timeout command timeout
-          return res.status(500).send(`Test timed out after 120 seconds`)
+          return res.status(500).send(`Test timed out`)
         }
         if (error.killed || error.signal === 'SIGKILL') {
           return res
@@ -154,7 +170,7 @@ const runTest = (res: any, folder: string, name: string, ending = 'csv', flat = 
       childProcess.kill('SIGKILL')
     }
     cleanup()
-  }, 135000) // 5 seconds after the exec timeout
+  }, (options.commandTimeoutMs ?? 120000) + 5000) // 5 seconds after the exec timeout
 
   childProcess.on('exit', () => {
     clearTimeout(forceCleanupTimer)
@@ -285,6 +301,36 @@ const runTipicoFootballTest = (req: any, res: any) => {
 app.get(/\/tipico-bundesliga\/.*\.json$/, runTipicoFootballTest)
 
 app.get(/\/tipico-football\/.*\.json$/, runTipicoFootballTest)
+
+const runKscTest = (res: any, id: string, force = false) => {
+  runTest(res, 'ksc', id, 'json', false, {
+    force,
+    cacheDays: id === 'games' ? 1 / 96 : 1 / 288, // 15 minutes for games, 5 minutes for match counts.
+    staleDays: 7,
+    commandTimeoutMs: id === 'games' ? 4 * 60 * 1000 : 20 * 60 * 1000,
+    playwrightTimeoutMs: id === 'games' ? 3 * 60 * 1000 : 19 * 60 * 1000,
+  })
+}
+
+app.get('/ksc/games.json', (req, res) => {
+  try {
+    runKscTest(res, 'games', req.query.force === '1')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
+
+app.get(/\/ksc\/[^/]+\.json$/, (req, res) => {
+  try {
+    const match = req.path.match(/\/ksc\/([^/]+)\.json$/)
+    const id = decodeURIComponent(match!![1]).replace(/[^a-zA-Z0-9._-]/g, '-')
+    runKscTest(res, id, req.query.force === '1')
+  } catch (e) {
+    console.log(e)
+    res.send(500)
+  }
+})
 
 app.get('/screengrab', (req, res) => {
   console.log(new Date())

@@ -6,4 +6,4 @@ test-results
 playwright-report
 temp
 .claude
-
+.env
