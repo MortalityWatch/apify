@@ -29,8 +29,10 @@ const slug = (value) =>
 const classifyFill = (fill) => {
   const value = String(fill || '').toLowerCase()
   if (value.includes('taken-seat')) return 'sold'
-  if (value === 'rgb(0, 75, 147)' || value === '#004b93') return 'resale'
+  if (value.includes('my-seats')) return 'sold'
   if (
+    value === 'rgb(0, 75, 147)' ||
+    value === '#004b93' ||
     value === 'rgb(0, 92, 169)' ||
     value === 'rgb(0, 123, 169)' ||
     value === 'rgb(0, 123, 196)' ||
@@ -245,12 +247,24 @@ async function extractSeatSummary(page) {
   const raw = await page.evaluate(() => {
     const tabpanel = [...document.querySelectorAll('[role="tabpanel"]')]
       .find((el) => /Stadionplan/i.test(el.getAttribute('aria-label') || el.textContent || '')) || document
+    const refreshCenters = [...tabpanel.querySelectorAll('image')]
+      .filter((img) => /refresh/i.test(img.getAttribute('href') || ''))
+      .map((img) => {
+        const rect = img.getBoundingClientRect()
+        return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
+      })
     const byFill = {}
+    const resaleFills = {}
     for (const circle of [...tabpanel.querySelectorAll('circle')]) {
+      const rect = circle.getBoundingClientRect()
+      const isResale = refreshCenters.some((center) =>
+        Math.abs(center.x - (rect.left + rect.width / 2)) < 10 &&
+        Math.abs(center.y - (rect.top + rect.height / 2)) < 10)
       const fill = window.getComputedStyle(circle).fill || circle.getAttribute('fill') || 'unknown'
-      byFill[fill] = (byFill[fill] || 0) + 1
+      const bucket = isResale ? resaleFills : byFill
+      bucket[fill] = (bucket[fill] || 0) + 1
     }
-    return byFill
+    return { byFill, resaleFills }
   })
 
   const summary = {
@@ -260,16 +274,19 @@ async function extractSeatSummary(page) {
     resaleSeats: 0,
     sightRestrictedSeats: 0,
     otherSeats: 0,
-    byFill: raw,
+    byFill: raw.byFill,
   }
-  for (const [fill, count] of Object.entries(raw)) {
+  for (const [fill, count] of Object.entries(raw.byFill)) {
     summary.totalSeats += count
     const status = classifyFill(fill)
     if (status === 'sold') summary.soldSeats += count
     else if (status === 'available') summary.availableSeats += count
-    else if (status === 'resale') summary.resaleSeats += count
     else if (status === 'sightRestricted') summary.sightRestrictedSeats += count
     else summary.otherSeats += count
+  }
+  for (const [fill, count] of Object.entries(raw.resaleFills)) {
+    summary.totalSeats += count
+    summary.resaleSeats += count
   }
   return summary
 }
@@ -309,6 +326,79 @@ test('ksc', async ({ page }) => {
   }
 
   const game = await openGame(page, games, TEST_ID)
+
+  if (process.env.LEGEND_PROBE) {
+    const candidates = await getMainPlanCandidates(page)
+    const wanted = process.env.LEGEND_BLOCK || 'N1'
+    const target = candidates.find((block) => block.label === wanted) || candidates[0]
+    console.log(`Legend probe on block ${target.label}`)
+    await clickBlock(page, target)
+    await page.getByRole('button', { name: 'Plätze wählen' }).click({ timeout: 15000 })
+    await page.waitForLoadState('networkidle').catch(() => {})
+    await delay(1500)
+
+    const probe = await page.evaluate(() => {
+      const tabpanel = [...document.querySelectorAll('[role="tabpanel"]')]
+        .find((el) => /Stadionplan/i.test(el.getAttribute('aria-label') || el.textContent || '')) || document
+      const byFill = {}
+      for (const circle of [...tabpanel.querySelectorAll('circle')]) {
+        const fill = window.getComputedStyle(circle).fill
+        const cls = circle.getAttribute('class') || ''
+        if (!byFill[fill]) byFill[fill] = { count: 0, classes: {} }
+        byFill[fill].count++
+        byFill[fill].classes[cls] = (byFill[fill].classes[cls] || 0) + 1
+      }
+      const seatInfo = { withExtra: [], plain: [], uses: 0, useSamples: [] }
+      for (const circle of [...tabpanel.querySelectorAll('circle')]) {
+        if (window.getComputedStyle(circle).fill !== 'rgb(0, 75, 147)') continue
+        const parent = circle.closest('g') || circle.parentElement
+        const extra = parent ? [...parent.children].filter((el) => el !== circle) : []
+        if (extra.length > 0 && seatInfo.withExtra.length < 3) {
+          seatInfo.withExtra.push(parent ? parent.outerHTML.slice(0, 400) : '')
+        }
+        if (extra.length === 0 && seatInfo.plain.length < 2) {
+          seatInfo.plain.push(circle.outerHTML.slice(0, 200))
+        }
+      }
+      const uses = [...tabpanel.querySelectorAll('use')]
+      seatInfo.uses = uses.length
+      seatInfo.useSamples = uses.slice(0, 5).map((u) => u.outerHTML.slice(0, 200))
+      const special = []
+      for (const el of [...tabpanel.querySelectorAll('*')]) {
+        if (el.tagName === 'circle') continue
+        const cls = String(el.getAttribute && el.getAttribute('class') || '')
+        const id = String(el.id || '')
+        const href = String(el.getAttribute && (el.getAttribute('href') || el.getAttribute('xlink:href')) || '')
+        if (/resale|refresh|exchange|return|arrow|rotate|repeat|swap|change/i.test(`${cls} ${id} ${href}`)) {
+          special.push({ tag: el.tagName, cls, id, href, html: el.outerHTML.slice(0, 250) })
+        }
+      }
+      seatInfo.special = special.slice(0, 10)
+      seatInfo.tagCounts = [...tabpanel.querySelectorAll('*')].reduce((acc, el) => {
+        acc[el.tagName] = (acc[el.tagName] || 0) + 1
+        return acc
+      }, {})
+      const legend = []
+      const legendRe = /resale|rückgabe|verfügbar|frei|verkauft|gebucht|blockiert|gesperrt|dauerkarte|sichtbehind|nicht/i
+      for (const el of [...document.querySelectorAll('li, span, div, p')]) {
+        const text = (el.innerText || '').trim().replace(/\s+/g, ' ')
+        if (!text || text.length > 80 || !legendRe.test(text)) continue
+        if (el.querySelector('li, div div, span span')) continue
+        const swatch = el.querySelector('circle, [fill], svg')
+        legend.push({
+          text,
+          color: swatch ? window.getComputedStyle(swatch).fill || window.getComputedStyle(swatch).backgroundColor : null
+        })
+      }
+      const legendText = (document.body.innerText.match(/Legende[\s\S]{0,400}/i) || [null])[0]
+      return { url: location.href, byFill, seatInfo, legend: legend.slice(0, 50), legendText }
+    })
+    await page.screenshot({ path: './temp/ksc/legend-probe.png', fullPage: false })
+    writeJson('legend-probe', probe)
+    console.log('Legend probe written to temp/ksc/legend-probe.json')
+    return
+  }
+
   const candidates = await getMainPlanCandidates(page)
   const blocks = []
   const skippedBlocks = []
