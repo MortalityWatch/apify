@@ -2,7 +2,7 @@ import express from 'express'
 import 'dotenv/config'
 import { exec } from 'child_process'
 import path from 'path'
-import { statSync, existsSync, mkdirSync } from 'fs'
+import { statSync, existsSync, mkdirSync, readFileSync } from 'fs'
 import { createHash } from 'crypto'
 import { inspect } from 'util'
 
@@ -392,6 +392,62 @@ app.get('/ksc/games.json', (req, res) => {
   }
 })
 
+const KSC_DAILY_REFRESH_MS = 24 * 60 * 60 * 1000
+
+const waitForKscBackgroundRefresh = (id: string, timeoutMs = 30 * 60 * 1000) =>
+  new Promise<boolean>((resolve) => {
+    const startedAt = Date.now()
+    const poll = setInterval(() => {
+      if (!runningTests.get(`ksc/${id}`)) {
+        clearInterval(poll)
+        resolve(true)
+      } else if (Date.now() - startedAt > timeoutMs) {
+        clearInterval(poll)
+        resolve(false)
+      }
+    }, 15000)
+  })
+
+const refreshKscDataset = async () => {
+  console.log('[ksc] Daily refresh started')
+  try {
+    startKscRefresh('games')
+    if (!(await waitForKscBackgroundRefresh('games'))) {
+      console.error('[ksc] Daily refresh: timed out waiting for games list')
+      return
+    }
+
+    const gamesPath = path.resolve(__dirname, '../temp/ksc/games.json')
+    if (!existsSync(gamesPath)) {
+      console.error('[ksc] Daily refresh: games.json missing after refresh')
+      return
+    }
+
+    const games: { id: string }[] = JSON.parse(readFileSync(gamesPath, 'utf8')).games || []
+    for (const game of games) {
+      startKscRefresh(String(game.id))
+      const ok = await waitForKscBackgroundRefresh(String(game.id))
+      console.log(`[ksc] Daily refresh: ${game.id} ${ok ? 'done' : 'timed out'}`)
+    }
+    console.log('[ksc] Daily refresh finished')
+  } catch (error) {
+    console.error('[ksc] Daily refresh failed:', error)
+  }
+}
+
+const scheduleKscDailyRefresh = () => {
+  const gamesPath = path.resolve(__dirname, '../temp/ksc/games.json')
+  // Stale data: refresh shortly after boot. Fresh data: wait a day.
+  const bootDelayMs = isFileYoungerThan(gamesPath, 1) ? KSC_DAILY_REFRESH_MS : 10 * 1000
+  setTimeout(() => {
+    void refreshKscDataset()
+    setInterval(() => {
+      void refreshKscDataset()
+    }, KSC_DAILY_REFRESH_MS)
+  }, bootDelayMs)
+  console.log(`[ksc] Daily refresh scheduled (first run in ${Math.round(bootDelayMs / 1000)}s)`)
+}
+
 app.get(/\/ksc\/[^/]+\.json$/, (req, res) => {
   try {
     const match = req.path.match(/\/ksc\/([^/]+)\.json$/)
@@ -627,5 +683,7 @@ const startServer = (serverPort: number) => {
     throw error
   })
 }
+
+scheduleKscDailyRefresh()
 
 startServer(port)
