@@ -317,7 +317,7 @@ app.get(/\/tipico-football\/.*\.json$/, runTipicoFootballTest)
 const runKscTest = (res: any, id: string, force = false) => {
   runTest(res, 'ksc', id, 'json', false, {
     force,
-    cacheDays: id === 'games' ? 1 / 96 : 1 / 288, // 15 minutes for games, 5 minutes for match counts.
+    cacheDays: 0.5, // 12 hours for both games and match details
     staleDays: 7,
     commandTimeoutMs: id === 'games' ? 4 * 60 * 1000 : 20 * 60 * 1000,
     playwrightTimeoutMs: id === 'games' ? 3 * 60 * 1000 : 19 * 60 * 1000,
@@ -363,7 +363,7 @@ const sendKscMatch = (res: any, id: string, force = false) => {
   const filePath = path.resolve(__dirname, '../temp/ksc', `${id}.json`)
   const testKey = `ksc/${id}`
   const hasCache = existsSync(filePath)
-  const isFresh = isFileYoungerThan(filePath, 1 / 288)
+  const isFresh = isFileYoungerThan(filePath, 0.5) // 12 hours
   const shouldRefresh = force || !isFresh
 
   if (hasCache) {
