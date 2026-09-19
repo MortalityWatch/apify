@@ -293,7 +293,37 @@ async function extractSeatSummary(page) {
 
 async function captureBlock(page, block, index) {
   await clickBlock(page, block)
-  await page.getByRole('button', { name: 'Plätze wählen' }).click({ timeout: 10000 })
+
+  // Try "Plätze wählen" first, then fall back to "Resale Plätze" or similar
+  const selectButton = page.getByRole('button', { name: 'Plätze wählen' })
+  const resaleButton = page.getByRole('button', { name: /Resale|Rückgabe/i })
+
+  let clickedButton = false
+
+  // Wait for either button to appear
+  try {
+    await Promise.race([
+      selectButton.waitFor({ timeout: 8000 }),
+      resaleButton.waitFor({ timeout: 8000 }),
+    ])
+  } catch {
+    // Neither button appeared - block might be completely sold out with no resale
+    throw new Error('No seat selection button found (block may be sold out)')
+  }
+
+  // Click whichever button is visible
+  if (await selectButton.isVisible().catch(() => false)) {
+    await selectButton.click({ timeout: 3000 })
+    clickedButton = true
+  } else if (await resaleButton.isVisible().catch(() => false)) {
+    await resaleButton.click({ timeout: 3000 })
+    clickedButton = true
+  }
+
+  if (!clickedButton) {
+    throw new Error('Could not click any seat selection button')
+  }
+
   await page.waitForLoadState('networkidle').catch(() => {})
   await delay(800)
   const seatSummary = await extractSeatSummary(page)
