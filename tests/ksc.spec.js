@@ -1,6 +1,7 @@
 import { test } from '@playwright/test'
 import 'dotenv/config'
 import { mkdirSync, writeFileSync } from 'fs'
+import { readAvailability } from '../lib/ksc-availability.cjs'
 
 const TEST_ID = process.env.TEST_ID || 'games'
 const OUT_DIR = './temp/ksc'
@@ -355,7 +356,23 @@ test('ksc', async ({ page }) => {
     return
   }
 
+  let blockinfo = null
+  const pendingAvailability = new Set()
+  const captureAvailability = (response) => {
+    if (!/saalinterface/i.test(response.url())) return
+    const pending = response.json().then((data) => {
+      if (data && data.blockinfo && 'saalplanVersion' in data) blockinfo = data.blockinfo
+    }).catch(() => {}).finally(() => pendingAvailability.delete(pending))
+    pendingAvailability.add(pending)
+  }
+  page.on('response', captureAvailability)
   const game = await openGame(page, games, TEST_ID)
+  await Promise.all([...pendingAvailability])
+  const offeredBlocks = await page.locator('#ariaBlocks option[value]').evaluateAll(options =>
+    options.map(option => ({ id: option.value, label: option.textContent || '' })))
+  const availability = readAvailability(blockinfo, offeredBlocks)
+  if (availability) availability.fetchedAt = new Date().toISOString()
+  page.off('response', captureAvailability)
 
   if (process.env.LEGEND_PROBE) {
     const candidates = await getMainPlanCandidates(page)
@@ -472,6 +489,7 @@ test('ksc', async ({ page }) => {
       venue: game.venue,
     },
     capacity: OFFICIAL_CAPACITY,
+    availability,
     summary,
     skippedBlocks,
     blocks: blocks.map((block) => ({

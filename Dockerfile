@@ -13,6 +13,7 @@ RUN npm i
 COPY src/ ./src/
 COPY tsconfig.json ./
 COPY tests/ ./tests/
+COPY lib/ ./lib/
 COPY playwright.config.js ./
 
 # Build the application
@@ -49,6 +50,7 @@ ENV HEADLESS=true
 COPY --from=builder /app/dist /app/dist
 COPY --from=builder /app/playwright.config.js /app/playwright.config.js
 COPY --from=builder /app/tests /app/tests
+COPY --from=builder /app/lib /app/lib
 
 # Command to run the application
 CMD ["node", "/app/dist/main.js"]
