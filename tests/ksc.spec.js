@@ -34,6 +34,9 @@ const classifyFill = (fill) => {
   if (
     value === 'rgb(0, 75, 147)' ||
     value === '#004b93' ||
+    // W2/W3's dark-blue price category is bookable in the shop seat response.
+    value === 'rgb(20, 39, 63)' ||
+    value === '#14273f' ||
     value === 'rgb(0, 92, 169)' ||
     value === 'rgb(0, 123, 169)' ||
     value === 'rgb(0, 123, 196)' ||
