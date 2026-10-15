@@ -1,7 +1,7 @@
 import { test } from '@playwright/test'
 import 'dotenv/config'
 import { mkdirSync, writeFileSync } from 'fs'
-import { readAvailability } from '../lib/ksc-availability.cjs'
+import { readAvailability, reconcileSections } from '../lib/ksc-availability.cjs'
 
 const TEST_ID = process.env.TEST_ID || 'games'
 const OUT_DIR = './temp/ksc'
@@ -201,15 +201,16 @@ async function openGame(page, games, id) {
 }
 
 async function getMainPlanCandidates(page) {
-  await page.locator('svg').first().waitFor({ timeout: 30000 })
+  await page.locator('#svg-plan svg').first().waitFor({ timeout: 30000 })
   return page.evaluate(() => {
     const blockLabel = /^(?:O[1-5]|N[1-4]|S[1-5]|W[1-4]|NO|SO|NW|SW|Rollstuhlfahrer)$/i
     const seen = new Set()
-    return [...document.querySelectorAll('svg tspan')]
+    return [...document.querySelectorAll('#svg-plan svg tspan')]
       .map((el) => {
         const rect = el.getBoundingClientRect()
         return {
           id: el.id || '',
+          polygonId: el.closest('g[id^="gsector"]')?.id || null,
           label: String(el.textContent || '').trim(),
           x: rect.left + rect.width / 2,
           y: rect.top + rect.height / 2,
@@ -229,9 +230,10 @@ async function getMainPlanCandidates(page) {
 }
 
 async function clickBlock(page, block) {
-  await page.keyboard.press('Escape').catch(() => {})
-  await page.evaluate(() => document.querySelectorAll('.popover.show, .popover, [role="tooltip"]').forEach((el) => el.remove())).catch(() => {})
-  if (block.id) {
+  // Use the mapped section when available; do not remove the shop's popover templates.
+  if (block.polygonId) {
+    await page.locator(`[id="${block.polygonId}"]`).click({ timeout: 10000, force: true })
+  } else if (block.id) {
     await page.locator(`[id="${block.id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`).click({ timeout: 10000, force: true })
   } else {
     await page.mouse.click(block.x, block.y)
@@ -240,7 +242,7 @@ async function clickBlock(page, block) {
 
 async function returnToMainPlan(page) {
   await page.locator('button.back-to-stadium').click({ timeout: 10000 })
-  await page.locator('svg').first().waitFor({ timeout: 30000 })
+  await page.locator('#svg-plan svg').first().waitFor({ timeout: 30000 })
   await delay(400)
 }
 
@@ -328,11 +330,13 @@ async function captureBlock(page, block, index) {
   await page.waitForLoadState('networkidle').catch(() => {})
   await delay(800)
   const seatSummary = await extractSeatSummary(page)
+  const capturedAt = new Date().toISOString()
   await returnToMainPlan(page)
   return {
     ...block,
     name: `${String(index + 1).padStart(3, '0')}-${slug(block.label)}`,
     seatSummary,
+    capturedAt,
   }
 }
 
@@ -446,7 +450,10 @@ test('ksc', async ({ page }) => {
     return
   }
 
-  const candidates = await getMainPlanCandidates(page)
+  const candidates = (await getMainPlanCandidates(page)).map(block => {
+    const matches = (availability?.blocks || []).filter(section => section.polygonId && section.polygonId === block.polygonId)
+    return { ...block, sectionId: matches.length === 1 ? matches[0].id : null }
+  })
   const blocks = []
   const skippedBlocks = []
 
@@ -455,7 +462,7 @@ test('ksc', async ({ page }) => {
     try {
       blocks.push(await captureBlock(page, block, index))
     } catch (error) {
-      skippedBlocks.push({ label: block.label, reason: error.message })
+      skippedBlocks.push({ label: block.label, sectionId: block.sectionId, polygonId: block.polygonId, reason: error.message })
       await page.keyboard.press('Escape').catch(() => {})
       if (await page.locator('button.back-to-stadium').count()) await returnToMainPlan(page).catch(() => {})
     }
@@ -477,6 +484,20 @@ test('ksc', async ({ page }) => {
   summary.homeNeutralRemainingPct = summary.openNormalResale / OFFICIAL_CAPACITY.homeNeutral
   summary.homeNeutralRemainingIncludingSightRestrictedPct = summary.openIncludingSightRestricted / OFFICIAL_CAPACITY.homeNeutral
 
+  const capturedSections = blocks.map(block => ({
+    label: block.label,
+    name: block.name,
+    sectionId: block.sectionId,
+    polygonId: block.polygonId,
+    capturedAt: block.capturedAt,
+    totalSeats: block.seatSummary.totalSeats,
+    soldSeats: block.seatSummary.soldSeats,
+    availableSeats: block.seatSummary.availableSeats,
+    resaleSeats: block.seatSummary.resaleSeats,
+    sightRestrictedSeats: block.seatSummary.sightRestrictedSeats,
+    otherSeats: block.seatSummary.otherSeats,
+  }))
+
   writeJson(TEST_ID, {
     fetchedAt: new Date().toISOString(),
     source: page.url(),
@@ -490,17 +511,9 @@ test('ksc', async ({ page }) => {
     },
     capacity: OFFICIAL_CAPACITY,
     availability,
+    reconciliation: reconcileSections(availability, capturedSections),
     summary,
     skippedBlocks,
-    blocks: blocks.map((block) => ({
-      label: block.label,
-      name: block.name,
-      totalSeats: block.seatSummary.totalSeats,
-      soldSeats: block.seatSummary.soldSeats,
-      availableSeats: block.seatSummary.availableSeats,
-      resaleSeats: block.seatSummary.resaleSeats,
-      sightRestrictedSeats: block.seatSummary.sightRestrictedSeats,
-      otherSeats: block.seatSummary.otherSeats,
-    })),
+    blocks: capturedSections,
   })
 })
