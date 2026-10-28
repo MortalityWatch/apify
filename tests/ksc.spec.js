@@ -2,6 +2,7 @@ import { test } from '@playwright/test'
 import 'dotenv/config'
 import { mkdirSync, writeFileSync } from 'fs'
 import { readAvailability, reconcileSections } from '../lib/ksc-availability.cjs'
+import { writeKscSnapshot } from '../lib/ksc-snapshots.cjs'
 
 const TEST_ID = process.env.TEST_ID || 'games'
 const OUT_DIR = './temp/ksc'
@@ -461,6 +462,7 @@ test('ksc', async ({ page }) => {
   const skippedBlocks = []
 
   for (const [index, block] of candidates.entries()) {
+    if (/^(?:N4|NO)$/i.test(block.label)) continue
     console.log(`(${index + 1}/${candidates.length}) Capturing ${block.label}`)
     try {
       blocks.push(await captureBlock(page, block, index))
@@ -501,7 +503,7 @@ test('ksc', async ({ page }) => {
     otherSeats: block.seatSummary.otherSeats,
   }))
 
-  writeJson(TEST_ID, {
+  const payload = {
     fetchedAt: new Date().toISOString(),
     source: page.url(),
     game: {
@@ -518,5 +520,8 @@ test('ksc', async ({ page }) => {
     summary,
     skippedBlocks,
     blocks: capturedSections,
-  })
+  }
+  const result = writeKscSnapshot(OUT_DIR, TEST_ID, payload)
+  console.log(`KSC data quality: ${JSON.stringify(result.dataQuality)}`)
+  console.log(`KSC inventory changes: ${JSON.stringify(result.changes)}`)
 })
