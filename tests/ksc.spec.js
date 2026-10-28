@@ -462,6 +462,8 @@ test('ksc', async ({ page }) => {
   const skippedBlocks = []
 
   for (const [index, block] of candidates.entries()) {
+    // N4/NO are away sections, estimated separately by the dashboard. The
+    // overview excludes them too, so their resale must not enter home totals.
     if (/^(?:N4|NO)$/i.test(block.label)) continue
     console.log(`(${index + 1}/${candidates.length}) Capturing ${block.label}`)
     try {
