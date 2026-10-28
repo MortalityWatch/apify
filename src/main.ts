@@ -73,14 +73,24 @@ const runTest = (
   )
 
   const testKey = `${folder}/${cacheKey}`
+  const cacheDays = options.cacheDays ?? 1
+  const staleDays = options.staleDays ?? 30
+  const sendCache = (status: string, refresh: string) => {
+    const ageSeconds = Math.max(0, Math.floor((Date.now() - statSync(filePath).mtimeMs) / 1000))
+    res.set('X-Cache', status)
+    res.set('X-Refresh', refresh)
+    res.set('X-Cache-Age', String(ageSeconds))
+    if (status === 'STALE') res.set('Cache-Control', 'no-store')
+    return res.sendFile(filePath)
+  }
 
   // Prevent multiple simultaneous runs of the same test
   if (runningTests.get(testKey)) {
     console.log(
       `Test ${testKey} is already running, returning cached file if available...`
     )
-    if (existsSync(filePath)) {
-      return res.sendFile(filePath)
+    if (isFileYoungerThan(filePath, staleDays)) {
+      return sendCache(isFileYoungerThan(filePath, cacheDays) ? 'HIT' : 'STALE', 'RUNNING')
     } else {
       return res.status(429).send('Test is already running, please wait...')
     }
@@ -94,11 +104,9 @@ const runTest = (
   }
 
   console.log(`File path: ${filePath}`)
-  const cacheDays = options.cacheDays ?? 1
-  const staleDays = options.staleDays ?? 30
   if (!options.force && isFileYoungerThan(filePath, cacheDays)) {
-    console.log('File is younger than one day, sending cached file...')
-    return res.sendFile(filePath)
+    console.log(`File is younger than ${cacheDays} days, sending cached file...`)
+    return sendCache('HIT', 'NONE')
   }
 
   // Mark test as running
@@ -132,18 +140,15 @@ const runTest = (
         console.error(`Execution error for ${testKey}: ${error.message}`)
         console.error(`Error code: ${error.code}, Signal: ${error.signal}`)
 
-        // Try to serve stale cache (up to 30 days old) on failure
+        // Only serve stale data within this endpoint's configured limit.
         if (isFileYoungerThan(filePath, staleDays)) {
           console.log(`Serving stale cache for ${testKey} due to scrape failure`)
-          return res.sendFile(filePath, (err: any) => {
-            if (err) {
-              console.error('Error sending stale cache:', err)
-            } else {
-              console.log('Served stale cache successfully.')
-            }
-          })
+          return sendCache('STALE', 'FAILED')
         }
 
+        res.set('X-Cache', 'MISS')
+        res.set('X-Refresh', 'FAILED')
+        res.set('Cache-Control', 'no-store')
         if (error.code === 124) {
           // timeout command timeout
           return res.status(500).send(`Test timed out`)
@@ -165,6 +170,8 @@ const runTest = (
       }
 
       console.log(`Test ${testKey} completed successfully. Sending file...`)
+      res.set('X-Cache', 'MISS')
+      res.set('X-Refresh', 'SUCCESS')
       res.sendFile(filePath, (err: any) => {
         if (err) {
           console.error('Error sending file:', err)
@@ -301,9 +308,15 @@ app.get('/us-general-election-2024-turnout.csv', (req, res) => {
 
 const runTipicoFootballTest = (req: any, res: any) => {
   try {
-    const tableId = req.path.match(/tipico-(?:bundesliga|football)\/(.*)\.json$/)
-    const id = tableId!![0].split('/')[1].replace('.json', '')
-    runTest(res, 'tipico-football', id, 'json')
+    const id = req.path.match(/^\/tipico-(?:bundesliga|football)\/([^/]+)\.json$/)?.[1]
+    if (!['bl1', 'bl2', 'bl3', 'dfb-pokal'].includes(id)) {
+      return res.status(404).send('Unknown Tipico football dataset')
+    }
+    runTest(res, 'tipico-football', id, 'json', false, {
+      force: req.query.force === '1',
+      cacheDays: 1 / 24,
+      staleDays: 1,
+    })
   } catch (e) {
     console.log(e)
     res.send(500)

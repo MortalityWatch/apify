@@ -1,6 +1,18 @@
 import { expect, test } from '@playwright/test'
-import { mkdirSync, writeFileSync } from 'fs'
+import { mkdirSync, writeFileSync, renameSync } from 'fs'
 import { dirname } from 'path'
+import { parseTipicoResponse } from '../lib/tipico-response.cjs'
+
+// The production host may be geoblocked even though the API works locally.
+if (process.env.TIPICO_PROXY_SERVER) {
+  test.use({
+    proxy: {
+      server: process.env.TIPICO_PROXY_SERVER,
+      username: process.env.TIPICO_PROXY_USERNAME,
+      password: process.env.TIPICO_PROXY_PASSWORD,
+    },
+  })
+}
 
 const datasets = {
   bl1: {
@@ -46,10 +58,14 @@ test('test', async ({ request }) => {
     }
   )
 
-  expect(response.ok()).toBeTruthy()
-
-  const data = await response.json()
+  const data = parseTipicoResponse(
+    response.status(),
+    response.headers()['content-type'],
+    await response.text()
+  )
   const outputFile = `./temp/tipico-football/${id}.json`
   mkdirSync(dirname(outputFile), { recursive: true })
-  writeFileSync(outputFile, JSON.stringify(data, null, 2))
+  const pendingFile = `${outputFile}.${process.pid}.tmp`
+  writeFileSync(pendingFile, JSON.stringify(data, null, 2))
+  renameSync(pendingFile, outputFile)
 })
