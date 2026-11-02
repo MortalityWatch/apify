@@ -60,6 +60,7 @@ const runTest = (
     force?: boolean
     cacheDays?: number
     staleDays?: number
+    backgroundRefresh?: boolean
     commandTimeoutMs?: number
     playwrightTimeoutMs?: number
   } = {}
@@ -109,6 +110,9 @@ const runTest = (
     return sendCache('HIT', 'NONE')
   }
 
+  // Slow refreshes must not hold cached Tipico responses past client timeouts.
+  const background = options.backgroundRefresh && !options.force && isFileYoungerThan(filePath, staleDays)
+
   // Mark test as running
   runningTests.set(testKey, true)
   console.log(`Starting test: ${testKey}`)
@@ -139,6 +143,7 @@ const runTest = (
       if (error) {
         console.error(`Execution error for ${testKey}: ${error.message}`)
         console.error(`Error code: ${error.code}, Signal: ${error.signal}`)
+        if (background) return
 
         // Only serve stale data within this endpoint's configured limit.
         if (isFileYoungerThan(filePath, staleDays)) {
@@ -164,9 +169,15 @@ const runTest = (
       // Check if the expected file was created
       if (!existsSync(filePath)) {
         console.error(`Expected output file not found: ${filePath}`)
+        if (background) return
         return res
           .status(500)
           .send(`Test completed but output file not generated`)
+      }
+
+      if (background) {
+        console.log(`Background refresh ${testKey} completed successfully.`)
+        return
       }
 
       console.log(`Test ${testKey} completed successfully. Sending file...`)
@@ -200,6 +211,8 @@ const runTest = (
     cleanup()
     clearTimeout(forceCleanupTimer)
   })
+
+  if (background) return sendCache('STALE', 'BACKGROUND')
 }
 
 // Wildcard route for CSV files
@@ -316,6 +329,7 @@ const runTipicoFootballTest = (req: any, res: any) => {
       force: req.query.force === '1',
       cacheDays: 1 / 24,
       staleDays: 1,
+      backgroundRefresh: true,
     })
   } catch (e) {
     console.log(e)
